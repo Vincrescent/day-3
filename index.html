@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Universe Eye — Observatorium Pribadi</title>
+  <meta name="description" content="Eksplorasi tata surya yang sinematik. Matahari, delapan planet, dan Bulan — dari observatorium pribadimu.">
+  <meta name="theme-color" content="#0a0c16">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='26' fill='%230a0c16' stroke='%23d4a574' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%23ffd27a'/%3E%3Cellipse cx='32' cy='32' rx='24' ry='8' fill='none' stroke='%235a6b8c' stroke-width='2' transform='rotate(-18 32 32)'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="viewport" aria-label="Kanvas tata surya"></div>
+
+  <header id="brand">
+    <h1>UNIVERSE&nbsp;EYE</h1>
+    <p>observatorium pribadi &mdash; dari sini, segalanya terasa dekat</p>
+  </header>
+
+  <div id="labels"></div>
+
+  <section id="panel" class="hidden" aria-live="polite">
+    <button id="panel-close" class="icon-btn" aria-label="Tutup panel">&#10005;</button>
+    <div class="eyebrow" id="p-eyebrow">tata surya</div>
+    <h2 id="p-name">Matahari</h2>
+    <div class="latin" id="p-latin">Sol</div>
+    <div class="facts" id="p-facts"></div>
+    <p class="quote" id="p-quote"></p>
+    <p class="src" id="p-src"></p>
+  </section>
+
+  <nav id="chips" aria-label="Pilih benda langit"></nav>
+
+  <div id="dock">
+    <button id="btn-orbits" class="ghost" aria-pressed="true">Orbit</button>
+    <button id="btn-home" class="ghost" aria-label="Kembali ke pandangan sistem">&#8962; Sistem</button>
+    <button id="btn-tour" class="ghost" aria-pressed="false">&#9654; Jelajahi</button>
+  </div>
+
+  <div id="hint">seret untuk berputar &middot; scroll untuk mendekat &middot; klik planet untuk fokus &middot; 1&ndash;9 planet &middot; 0 sistem &middot; T jelajahi</div>
+
+  <footer id="credits">
+    <span>Imagery Bumi: NASA (public domain) via three-globe</span>
+    <span class="sep">&middot;</span>
+    <span>Teks planet lain: shader orisinal Universe Eye</span>
+    <span class="sep">&middot;</span>
+    <span id="fps" aria-hidden="true"></span>
+  </footer>
+
+  <div id="intro">
+    <div class="intro-inner">
+      <div class="eyebrow">observatorium pribadi</div>
+      <h2>Universe Eye</h2>
+      <p class="tag">Dari sini, segalanya terasa dekat.</p>
+      <div class="load"><i id="loadbar"></i></div>
+    </div>
+  </div>
+
+  <div id="noscript">Universe Eye membutuhkan JavaScript.</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
+          onerror="this.remove();var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js';s.onerror=function(){window.__UE_NO3D=1};document.head.appendChild(s);"></script>
+  <script>if (window.THREE) { window.__UE_OK = true; } else { window.addEventListener('load', function(){ window.__UE_NO3D = true; }); }</script>
+
+  <script src="js/noise.js"></script>
+  <script src="js/starfield.js"></script>
+  <script src="js/solar-system.js"></script>
+  <script src="js/camera.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
