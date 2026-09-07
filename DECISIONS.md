@@ -15,9 +15,12 @@ Aturan kualitas: imersi, kamera halus, performa tinggi, aset legal, kode modular
 
 **Revisi kebijakan aset (2026-09-08):** Kebijakan awal "0 byte dari referensi"
 direvisi atas izin owner — kode MIT dari referensi bisa dipakai asalkan atribusi
-MIT dipertahankan. Hanya bagian murni (canvas 2D + math, bebas Cesium) yang diambil,
-khususnya `src/celestialRing.js` → adaptasi jadi `js/corona.js`. Atribusi MIT
-penuh di `js/corona.js` (header), `THIRD_PARTY_NOTICES.md`, dan `ASSET_LICENSES.md`.
+MIT dipertahankan. Yang diambil (hanya bagian murni, bebas Cesium):
+1. `src/celestialRing.js` → adaptasi jadi `js/corona.js` (glow corona + halo Bulan).
+2. `src/splitFlap.js` (+ CSS-nya) → adaptasi jadi `js/split-flap.js` (flip-mekanik
+   nama planet). Kode Cesium-spesifik & data non-MIT tetap 0 byte.
+Atribusi MIT penuh di `js/corona.js`, `js/split-flap.js`, `THIRD_PARTY_NOTICES.md`,
+dan `ASSET_LICENSES.md` (§2a, §2b).
 
 ## 1. FASE AUDIT (RE)
 
@@ -113,7 +116,7 @@ Harness: `test/e2e.js` (jsdom + stub THREE) menjalankan **kode produksi nyata**.
 | Kamera halus | ✅ damping eksponensial, follow target bergerak, handoff 1–2 dtk |
 | Performa tinggi | ✅ adaptive DPR, 2 batch bintang, segmen hemat, single CDN dep |
 | Aset legal | ✅ public domain (Bumi) + orisinal (sisanya) + adaptasi MIT ber-atribusi; audit tertulis |
-| Kode modular | ✅ 7 modul single-responsibility (noise/starfield/solar-system/camera/corona/ui/app); e2e 56/56 |
+| Kode modular | ✅ 8 modul single-responsibility (noise/starfield/solar-system/camera/corona/split-flap/ui/app); e2e 67/67 |
 | Originalitas (bukan template generik) | ✅ identitas, shader, copy, UI — semua orisinal; pola sinematik diambil dari referensi (izin), bukan disalin |
 | Dokumentasi keputusan | ✅ file ini + ASSET_LICENSES.md + README |
 

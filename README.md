@@ -42,7 +42,7 @@ Tidak perlu API key. Tidak perlu build step. 100% vanilla HTML/CSS/JS + Three.js
 |---|---|
 | Tata surya lengkap | Matahari + 8 planet + Bulan, orbit inklinasi nyata, kemiringan sumbu nyata |
 | Kamera sinematik | Damping eksponensial (framerate-independent), intro drop, focus handoff 1–2 dtk, auto-tour |
-| Panel info | Data publik per benda langit, kutipan, kredit sumber |
+| Panel info | Data publik per benda langit, kutipan, kredit sumber — **nama flip-mekanik** (split-flap departure board, adaptasi MIT) |
 | Tekstur | Bumi = NASA Blue Marble (public domain); planet lain = **shader prosedural orisinal** (seam-free, fBm noise di arah bola) |
 | Cincin Saturnus | Tekstur cincin prosedural + Celah Cassini |
 | Matahari hidup | Korona sprite additive + denyut, **glow corona sinematik** (sinar radial + arc, overlay screen-space) |
@@ -68,6 +68,7 @@ universe-eye/
 │   ├── solar-system.js   # data publik + tekstur prosedural + orbit + tick
 │   ├── camera.js         # kamera bola + damping eksponensial + follow
 │   ├── corona.js         # glow corona Matahari + halo Bulan (adaptasi MIT — lihat bawah)
+│   ├── split-flap.js     # flip-mekanik per-karakter (adaptasi MIT — lihat bawah)
 │   ├── ui.js             # panel info, chips, labels, tour, keyboard
 │   └── app.js            # orkestrator: renderer, raycast, adaptive DPR, loop
 ├── assets/textures/      # 4 tekstur Bumi (NASA, public domain) — 2.9 MB total
@@ -84,14 +85,14 @@ universe-eye/
 
 Setiap modul ≤ ~300 baris, single-responsibility, tanpa dependensi satu sama lain
 kecuali urutan bootstrap di `index.html` (pola modular terinspirasi *God's Eye
-View* — MIT). `corona.js` adalah **adaptasi MIT** dari bagian murni
-(canvas 2D + math) `celestialRing.js` referensi — atribusi penuh di
+View* — MIT). `corona.js` dan `split-flap.js` adalah **adaptasi MIT** dari
+bagian murni referensi (bebas Cesium) — atribusi penuh di
 `THIRD_PARTY_NOTICES.md`.
 
 ## Pengujian
 
 ```bash
-node test/e2e.js    # → 56/56 checks passed
+node test/e2e.js    # → 67/67 checks passed
 ```
 Harness menjalankan **kode produksi nyata** (noise, data, kamera, UI, math corona)
 di jsdom dengan stub THREE. Menutupi: data, build tanpa canvas, parenting Bulan,

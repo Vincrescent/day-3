@@ -159,8 +159,16 @@
 
   UEUI.prototype.showPanel = function (rec) {
     var b = rec.body;
-    $('p-eyebrow').textContent = b.kind === 'star' ? 'bintang' : (b.kind === 'moon' ? 'satelit alami' : 'planet');
-    $('p-name').textContent = b.name;
+    var panel = $('panel');
+    panel.classList.remove('hidden');
+    panel.classList.add('show');
+    var eyebrow = $('p-eyebrow');
+    if (eyebrow) {
+      eyebrow.textContent = b.kind === 'star' ? 'bintang' : (b.kind === 'moon' ? 'satelit alami' : 'planet');
+    }
+    // flip-mekanik pada header — split-flap departure-board (adaptasi MIT)
+    var nameEl = $('p-name');
+    if (nameEl) UESplitFlap.set(nameEl, b.name);
     $('p-latin').textContent = b.latin;
     var facts = $('p-facts');
     facts.innerHTML = '';
@@ -174,9 +182,6 @@
     }
     $('p-quote').textContent = '\u201C' + b.quote + '\u201D';
     $('p-src').textContent = b.src;
-    var panel = $('panel');
-    panel.classList.remove('hidden');
-    panel.classList.add('show');
   };
 
   UEUI.prototype._hidePanel = function () {

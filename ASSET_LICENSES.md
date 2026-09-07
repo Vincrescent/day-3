@@ -32,6 +32,7 @@ Di-host ulang oleh [three-globe](https://github.com/vasturiano/three-globe)
 |---|---|---|
 | Three.js r128 (UMD) | MIT | Via cdnjs, fallback jsdelivr |
 | `js/corona.js` (adaptasi) | **MIT** | Diadaptasi dari "God's Eye View" `src/celestialRing.js` (Bilawal Sidhu, 2026). Lihat §2a. |
+| `js/split-flap.js` (adaptasi) | **MIT** | Diadaptasi dari "God's Eye View" `src/splitFlap.js` (Bilawal Sidhu, 2026). Lihat §2b. |
 
 ### 2a. Adaptasi MIT — `corona.js` (wajib & sudah terpenuhi)
 
@@ -53,21 +54,43 @@ ephemeris, `projectEarthDiscToViewport`, `CelestialRing` class,
 **Syarat MIT (atribusi) — STATUS:**
 - ✅ Copyright notice + permissive grant disalin penuh di header `js/corona.js`
 - ✅ Attribution juga di-`REPORT_QA.md` dan `DECISIONS.md`
-- ⬜ Disarankan: tambah file `THIRD_PARTY_NOTICES.md` (tercantum di TODO QA)
+- ✅ `THIRD_PARTY_NOTICES.md` tersedia
 
 **Orisinalitas identitas:** pola & math dipakai, tapi konteks, konstanta
 tuning, layering, dan integrasi ke scene Universe Eye 100% orisinal.
 Tidak ada penyalinan identitas/feel — ini adalah **adopsi kode permissif**
 yang diizinkan owner, bukan penjiplakan.
 
+## 2b. Adaptasi MIT — `split-flap.js` (wajib & sudah terpenuhi)
+
+Sumber: **God's Eye View** — `src/splitFlap.js` (521 baris) + blok CSS
+`.gev-flap-*` dari `style.css`, MIT License, Copyright (c) 2026 Bilawal Sidhu.
+
+Kode split-flap 100% **bebas Cesium** (DOM + CSS murni) — jadi bisa dipindah
+utuh. Dipindahkan:
+- `planSplitFlap`, `visibleGlyphs`, `ensureHost`, `easeWidth`, `settle`,
+  `rest`, `setSplitFlapText` + konstanta tunenya (`FLAP_CHAR_MS` 190,
+  `FLAP_STAGGER_MS` 26, `FLAP_MAX_TOTAL_MS` 620, `FLAP_TURN_RATIO` 0.5)
+- 4 invariant desain (documented di header `js/split-flap.js`)
+- CSS: keyframes `ue-flap-in`/`ue-flap-out`, cell/cells/host class,
+  reduced-motion fallback
+
+Aksesibilitas & idempotensi dipertahankan: `textContent` selalu = string
+terdiam (invariant 1), satu `setTimeout` per perubahan (invariant 2),
+kaskade yang terpotong flap dari glyph yang SEDANG ditampilkan (invariant 3),
+kolom tak pernah di-renumber di tengah kaskade (invariant 4).
+Kill-switch `SPLIT_FLAP_ENABLED=false` mengembalikan swap teks instan.
+
+**Syarat MIT (atribusi):** header `js/split-flap.js` + `THIRD_PARTY_NOTICES.md` + file ini.
+
 ## 3. Orisinal (tanpa lisensi pihak ketiga)
 
-Semua file `js/*.js` selain adaptasi di §2a = karya orisinal Universe Eye:
+Semua file `js/*.js` selain adaptasi di §2a/§2b = karya orisinal Universe Eye:
 - noise.js — value noise 3D + fBm + RNG seed
 - starfield.js — 28.000 bintang, pita Bimasakti, nebula
 - solar-system.js — 7 tekstur planet prosedural, cincin Saturnus, korona
 - camera.js, ui.js, app.js, css/style.css
-- (corona.js = adaptasi, lihat §2a)
+- (corona.js = adaptasi §2a; split-flap.js = adaptasi §2b)
 
 ## 4. Data (fakta ilmiah — public domain)
 

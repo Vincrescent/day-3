@@ -56,6 +56,7 @@ async function main() {
   load('js/starfield.js');
   load('js/solar-system.js');
   load('js/camera.js');
+  load('js/split-flap.js');
   load('js/ui.js');
   load('js/corona.js');
 
@@ -90,6 +91,25 @@ async function main() {
   let c = null;
   try { c = C.create(); c.resize(800, 600); } catch (e) { check('corona create+resize no-crash (jsdom)', false, e.message); }
   if (c) check('corona create+resize no-crash (jsdom, no 2d ctx)', true);
+
+  // ---- split-flap: math pure + DOM shell (adaptasi MIT dari God's Eye View) ----
+  const SF = window.UESplitFlap;
+  check('UESplitFlap exposes set/plan/visibleGlyphs', typeof SF.set === 'function' && typeof SF.plan === 'function' && typeof SF.visibleGlyphs === 'function');
+  const plan = SF.plan('Bumi', 'Mars');
+  check('plan: Bumi→Mars changes all 4 cols', plan.changedCount === 4 && plan.cells.length === 4, 'changed=' + plan.changedCount);
+  check('plan: firstChanged=0 lastChanged=3', plan.firstChanged === 0 && plan.lastChanged === 3);
+  check('plan: duration = 3*stagger + char', plan.durationMs === 3 * 26 + 190, 'dur=' + plan.durationMs);
+  check('plan: no-change returns empty cells', SF.plan('Bumi', 'Bumi').changedCount === 0 && SF.plan('Bumi', 'Bumi').cells.length === 0);
+  check('visibleGlyphs: at t=0 shows old glyphs', SF.visibleGlyphs(plan, 0) === 'Bumi', 'got ' + SF.visibleGlyphs(plan, 0));
+  check('visibleGlyphs: after settle shows new', SF.visibleGlyphs(plan, 999) === 'Mars', 'got ' + SF.visibleGlyphs(plan, 999));
+  // DOM: set() membangun shell + textContent benar (tak pernah kosong)
+  const flipHost = document.getElementById('p-name');
+  SF.set(flipHost, 'Bumi');
+  check('split-flap: shell dibangun (ue-flap-host)', flipHost.classList.contains('ue-flap-host'));
+  check('split-flap: textContent truth = Bumi', flipHost.textContent === 'Bumi', 'got ' + JSON.stringify(flipHost.textContent));
+  SF.set(flipHost, 'Jupiter');
+  check('split-flap: setelah set ke Jupiter, textContent = Jupiter', flipHost.textContent === 'Jupiter');
+  check('split-flap: cells dekoratif ada saat kaskade aktif', flipHost.querySelector('.ue-flap-cells') !== null);
 
   // ---- build ----
   let sys, cam, ui;

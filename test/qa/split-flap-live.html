@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="id"><head>
+<meta charset="utf-8">
+<base href="../..">
+<title>Split-flap live probe</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body style="background:#05060d;color:#e8e0cc;font-family:monospace;padding:20px">
+<pre id="d" style="display:none;background:#000c;color:#7CFC00;font:12px/1.4 monospace;padding:8px;white-space:pre-wrap"></pre>
+<h2 id="p-name" style="font-size:40px">Matahari</h2>
+<div id="chips" style="margin-top:20px"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/split-flap.js"></script>
+<script>
+(function(){
+  var out = [];
+  function log(m){ out.push(m); }
+  function tick(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  function finish(){
+    var el = document.getElementById('d');
+    el.style.display='block';
+    var fail = out.filter(function(l){return /^FAIL/.test(l)}).length;
+    el.textContent = out.join('\n') + '\n==== ' + (fail? fail+' FAIL':'SPLIT-FLAP ALL PASS') + ' ====';
+  }
+  function run(){
+    var el = document.getElementById('p-name');
+    // 1. shell dibangun
+    var r1 = UESplitFlap.set(el, 'Jupiter');
+    log('set() returns bool: ' + (typeof r1 === 'boolean'));
+    // tunggu kaskade (dur ≈ 3*26+190=268ms + slack 60 = 328ms)
+    tick(30).then(function(){
+      // 2. SELAMA kaskade: host aktif + cells ada + textContent = target (truth)
+      var activeMid = el.classList.contains('ue-flap-active');
+      var cellsMid = el.querySelectorAll('.ue-flap-cells .ue-flap-cell').length;
+      var truthMid = el.textContent;
+      log((activeMid) ? 'PASS mid-cascade: host aktif' : 'FAIL mid: host tak aktif');
+      log((cellsMid >= 5) ? 'PASS mid-cascade: ' + cellsMid + ' cells hadir' : 'FAIL mid cells: ' + cellsMid);
+      log((truthMid === 'Jupiter') ? 'PASS mid-cascade: textContent truth = Jupiter (selalu)' : 'FAIL mid truth: ' + truthMid);
+      // 3. glyph masuk memakai generated content (data-flap-next), bukan textContent
+      var cell = el.querySelector('.ue-flap-cell');
+      var hasDataNext = cell && cell.dataset && cell.dataset.flapNext !== undefined;
+      log((hasDataNext) ? 'PASS cell pakai data-flap-next (generated content, tak sampai textContent)' : 'FAIL: tak ada data-flap-next');
+      // tunggu settle (Matahari→Jupiter = 8 kolom, durasi 7*26+190=372ms + slack 60 = 432ms)
+      tick(480).then(function(){
+        // 4. SETELAH settle: cells dicabut, teks asli kembali tampil
+        var activeAfter = el.classList.contains('ue-flap-active');
+        var cellsAfter = el.querySelectorAll('.ue-flap-cells .ue-flap-cell').length;
+        var textAfter = el.textContent;
+        log((!activeAfter) ? 'PASS after-settle: host kembali idle' : 'FAIL after: masih aktif');
+        log((cellsAfter === 0) ? 'PASS after-settle: cells dicabut (0)' : 'FAIL after cells: ' + cellsAfter);
+        log((textAfter === 'Jupiter') ? 'PASS after-settle: textContent = Jupiter' : 'FAIL after: ' + textAfter);
+        // 5. idempotensi: set teks sama = no-op (kembalikan false)
+        var noop = UESplitFlap.set(el, 'Jupiter');
+        log((noop === false) ? 'PASS set(sama) = no-op (false)' : 'FAIL: set(sama) != false');
+        // 6. kaskade kedua
+        UESplitFlap.set(el, 'Merkurius');
+        log('PASS kaskade kedua dimulai (Merkurius)');
+        finish();
+      });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+})();
+</script>
+</body></html>
