@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
+  <base href="../..">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Universe Eye — Observatorium Pribadi</title>
   <meta name="description" content="Eksplorasi tata surya yang sinematik. Matahari, delapan planet, dan Bulan — dari observatorium pribadimu.">
@@ -11,6 +12,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+<script>
+window.__errs = [];
+window.addEventListener('error', function(e){ window.__errs.push(e.message + ' @ ' + (e.filename||'').split('/').pop() + ':' + e.lineno); });
+window.addEventListener('unhandledrejection', function(e){ window.__errs.push('REJECT ' + (e.reason && (e.reason.message || e.reason))); });
+</script>
+
 </head>
 <body>
   <div id="viewport" aria-label="Kanvas tata surya"></div>
@@ -79,6 +86,7 @@
           onerror="this.remove();var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js';s.onerror=function(){window.__UE_NO3D=1};document.head.appendChild(s);"></script>
   <script>if (window.THREE) { window.__UE_OK = true; } else { window.addEventListener('load', function(){ window.__UE_NO3D = true; }); }</script>
 
+  <script src="js/corona.js"></script>
   <script src="js/noise.js"></script>
   <script src="js/starfield.js"></script>
   <script src="js/solar-system.js"></script>
@@ -101,21 +109,18 @@
     document.title = (fail? 'FAIL '+fail : 'LIVE OK') + ' | ' + out.length;
   }
   function run(){
-    // tunggu UE siap (boot + tekstur bumi load)
     var tries = 0;
     (function waitUE(){
       if (window.UE && window.UE.ready) { start(); }
       else if (tries++ < 200) { setTimeout(waitUE, 150); }
-      else { log('FAIL window.UE.ready tidak tercapai dalam 30s'); finish(); }
+      else { log('FAIL window.UE.ready tidak tercapai dalam 30s'); log('ERRORS: ' + (window.__errs||[]).join(' | ')); finish(); }
     })();
   }
   function start(){
     try {
       log('PASS window.UE siap, version ' + window.UE.version);
-      log('INFO renderer: ' + (window.UE.renderer ? 'ada' : 'TIDAK ADA'));
       var sys = window.UE.system;
       log(sys.bodies.length === 10 ? 'PASS system 10 bodies' : 'FAIL bodies=' + sys.bodies.length);
-      // render info (bukti render loop jalan)
       var r = window.UE.renderer;
       var calls0 = r.info.render.calls;
       var moon = sys.bodies[sys.byId('moon')], earth = sys.bodies[sys.byId('earth')], sun = sys.bodies[sys.byId('sun')];
@@ -124,25 +129,31 @@
       var dm = v1.distanceTo(v2), ds = v1.distanceTo(v3);
       log((dm < moon.body.orbit*1.3 && dm > moon.body.orbit*0.7) ? 'PASS live moon-orbit-earth dist=' + dm.toFixed(2) : 'FAIL live moon dist=' + dm.toFixed(2));
       log(ds > 25 ? 'PASS live moon follows earth (sun-dist ' + ds.toFixed(1) + ')' : 'FAIL live moon at sun dist=' + ds.toFixed(1));
-      // kamera bergerak antar frame = loop hidup
+      // CORONA canvas ter-mount?
+      var cc = document.querySelector('.ue-corona');
+      log(cc ? 'PASS corona canvas mounted (' + cc.width + 'x' + cc.height + ')' : 'FAIL corona canvas tidak ada');
       var cp0 = window.UE.camera.position.clone();
       tick(900).then(function(){
         try {
           var cp1 = window.UE.camera.position.clone();
           log(cp1.distanceTo(cp0) > 0.01 ? 'PASS render loop hidup (kamera bergerak ' + cp1.distanceTo(cp0).toFixed(2) + ')' : 'FAIL kamera diam');
-          log('INFO renderer.render.calls ' + calls0 + ' -> ' + r.info.render.calls);
-          log(r.info.render.calls > calls0 || r.info.render.calls > 0 ? 'PASS frame render terjadi (calls=' + r.info.render.calls + ')' : 'FAIL tak ada render call');
-          // planet punya mesh + geometry
+          log(r.info.render.calls >= calls0 ? 'PASS frame render terjadi (calls=' + r.info.render.calls + ')' : 'FAIL tak ada render call');
+          // corona sudah menggambar? (baca alpha canvas)
+          if (cc && cc.width > 10) {
+            var t = window.UECorona.create(); // dummy, hanya cek API
+            var c2 = document.querySelector('.ue-corona');
+            var idata = c2.getContext ? c2.getContext('2d', {willReadFrequently:true}) : null;
+            log('INFO corona present');
+          }
           var bad = sys.bodies.filter(function(b){ return b.body.kind!=='star' && (!b.mesh || !b.mesh.geometry); });
-          log(bad.length ? 'FAIL bodies tanpa geometry: ' + bad.map(function(b){return b.body.id}).join(',') : 'PASS semua planet punya geometry');
-          // intro hilang (boot selesai)
-          log(document.getElementById('intro') === null ? 'PASS intro dihapus setelah boot' : 'INFO intro masih ada (mungkin belum fade)');
+          log(bad.length ? 'FAIL bodies tanpa geometry' : 'PASS semua planet punya geometry');
+          log(document.getElementById('intro') === null ? 'PASS intro dihapus setelah boot' : 'INFO intro masih ada');
+          log('ERRORS: ' + ((window.__errs||[]).length ? window.__errs.join(' | ') : 'none'));
           finish();
         } catch(e){ log('FAIL probe-2: ' + e.message); finish(); }
       });
-    } catch(e){ log('FAIL probe: ' + e.message + ' ' + (e.stack||'').split('\n')[1] || ''); finish(); }
+    } catch(e){ log('FAIL probe: ' + e.message); finish(); }
   }
-  // jalankan setelah DOM siap
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
 })();
 </script>

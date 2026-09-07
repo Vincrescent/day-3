@@ -45,9 +45,13 @@ Tidak perlu API key. Tidak perlu build step. 100% vanilla HTML/CSS/JS + Three.js
 | Panel info | Data publik per benda langit, kutipan, kredit sumber |
 | Tekstur | Bumi = NASA Blue Marble (public domain); planet lain = **shader prosedural orisinal** (seam-free, fBm noise di arah bola) |
 | Cincin Saturnus | Tekstur cincin prosedural + Celah Cassini |
-| Matahari hidup | Korona sprite additive + denyut, PointLight pusat |
+| Matahari hidup | Korona sprite additive + denyut, **glow corona sinematik** (sinar radial + arc, overlay screen-space) |
+| Halo Bulan | Cahaya dingin sinematik saat kamera dekat Bulan (overlay screen-space) |
 | Bintang | 28.000 partikel (field + pita Bimasakti) + 3 nebula, additive |
-| Navigasi | Drag, scroll, pinch, klik (raycast drag-safe), label 3D, chips, keyboard `1–9` `0` `T` `O` `Esc` |
+| Navigasi | Drag, scroll, pinch, klik (raycast drag-safe), double-click, label 3D, chips, keyboard `1–9` `0` `T` `O` `C` `S` `L` `Space` |
+| Time control | Pause/resume + slider kecepatan 0,25×–10× |
+| Scale mode | Visual (kompak) ↔ Orbit-akurat (1 AU = 60 unit) — transisi di-lerp |
+| Cinematic | Letterbox 2,35:1 + auto-tour + UI tersembunyi |
 | Performa | Adaptive pixel-ratio (auto-drop DPR saat FPS <24), DPR cap 2, single draw batch |
 | Aksesibilitas | `prefers-reduced-motion` (tanpa intro, damping pelan), ARIA labels, keyboard penuh |
 | Fallback | Pesan jelas bila WebGL/Three.js tidak tersedia |
@@ -63,30 +67,39 @@ universe-eye/
 │   ├── starfield.js      # 28k bintang + Bimasakti + nebula (ShaderMaterial)
 │   ├── solar-system.js   # data publik + tekstur prosedural + orbit + tick
 │   ├── camera.js         # kamera bola + damping eksponensial + follow
+│   ├── corona.js         # glow corona Matahari + halo Bulan (adaptasi MIT — lihat bawah)
 │   ├── ui.js             # panel info, chips, labels, tour, keyboard
 │   └── app.js            # orkestrator: renderer, raycast, adaptive DPR, loop
 ├── assets/textures/      # 4 tekstur Bumi (NASA, public domain) — 2.9 MB total
 ├── test/
-│   ├── e2e.js            # harness jsdom 29 assertion (kode nyata, stub THREE)
-│   └── stub-three.js     # stub THREE minimal untuk headless
+│   ├── e2e.js            # harness jsdom 56 assertion (kode nyata, stub THREE)
+│   ├── stub-three.js     # stub THREE minimal untuk headless
+│   └── qa/               # harness live-WebGL (diag-real, index-live)
 ├── ASSET_LICENSES.md     # provenance + lisensi setiap aset
+├── THIRD_PARTY_NOTICES.md# notices MIT (Three.js + adaptasi corona.js)
 ├── DECISIONS.md          # catatan keputusan multi-agen (audit → desain → implementasi)
+├── REPORT_QA.md          # laporan QA v1.1 (bug fix + fitur + hasil test)
 └── README.md
 ```
 
-Setiap modul ≤ ~250 baris, single-responsibility, tanpa dependensi satu sama lain
-kecuali urutan bootstrap di `index.html` (pola terinspirasi arsitektur modular
-*God's Eye View* — MIT; **nol byte kode yang disalin**, hanya paterannya).
+Setiap modul ≤ ~300 baris, single-responsibility, tanpa dependensi satu sama lain
+kecuali urutan bootstrap di `index.html` (pola modular terinspirasi *God's Eye
+View* — MIT). `corona.js` adalah **adaptasi MIT** dari bagian murni
+(canvas 2D + math) `celestialRing.js` referensi — atribusi penuh di
+`THIRD_PARTY_NOTICES.md`.
 
 ## Pengujian
 
 ```bash
-node test/e2e.js    # → 29/29 checks passed
+node test/e2e.js    # → 56/56 checks passed
 ```
-Harness menjalankan **kode produksi nyata** (noise, data, kamera, UI) di jsdom
-dengan stub THREE. Menutupi: data, build tanpa canvas, chips, panel focus/hide,
-toggle orbit, label, keyboard, tour, damping kamera, anti-XSS, error tak tertangkap.
-WebGL rendering itu sendiri tetap butuh cek browser (lihat DECISIONS.md §7).
+Harness menjalankan **kode produksi nyata** (noise, data, kamera, UI, math corona)
+di jsdom dengan stub THREE. Menutupi: data, build tanpa canvas, parenting Bulan,
+chips, panel focus/hide, toggle orbit/label/scale/cinematic, time control,
+keyboard, tour, damping kamera, tekstur staggered, math corona, anti-XSS,
+error tak tertangkap.
+Verifikasi WebGL end-to-end (boot + render loop + corona) tersedia di `test/qa/`
+(headless Chrome, WebGL2 nyata) — lihat `REPORT_QA.md`.
 
 ## Data & Aset (semua legal)
 
@@ -106,4 +119,6 @@ dipilih agar navigasi mulus, bukan simulasi fisika.
 
 - Imagery Bumi: **NASA** (public domain), via [three-globe](https://github.com/vasturiano/three-globe)
 - Three.js r128 (MIT) — [threejs.org](https://threejs.org/)
-- Arsitektur modular terinspirasi *God's Eye View* (MIT, c. Bilawal Sidhu) — pola saja, bukan kodenya.
+- Overlay corona: adaptasi dari *God's Eye View* `celestialRing.js`
+  (MIT, c. Bilawal Sidhu 2026) — bagian murni (canvas 2D + math), izin owner.
+  Atribusi lengkap: [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)

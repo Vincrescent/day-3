@@ -61,6 +61,13 @@
     var starfield = UEStarfield.build();
     scene.add(starfield.group);
 
+    // overlay sinematik screen-space (corona Matahari + halo Bulan)
+    // — adaptasi MIT dari God's Eye View / celestialRing.js (lihat kepala corona.js)
+    var corona = UECorona.create();
+    viewport.appendChild(corona.canvas);
+    corona.resize(global.innerWidth, global.innerHeight);
+    corona.hide(true); // muncul setelah intro
+
     var system, ui, cam;
     var appRef = {
       onScaleMode: function (m) {
@@ -97,6 +104,7 @@
       if (!intro) return;
       setTimeout(function () {
         intro.classList.add('done');
+        corona.hide(false);
         setTimeout(function () {
           if (intro && intro.parentNode) intro.parentNode.removeChild(intro);
         }, 1600);
@@ -141,6 +149,7 @@
       camera3d.aspect = global.innerWidth / global.innerHeight;
       camera3d.updateProjectionMatrix();
       renderer.setSize(global.innerWidth, global.innerHeight);
+      corona.resize(global.innerWidth, global.innerHeight);
     });
 
     // ---------- loop ----------
@@ -191,6 +200,8 @@
       }
 
       renderer.render(scene, camera3d);
+      // overlay screen-space: proyeksi per frame, hanya kalau kamera berubah
+      if (system) corona.tick(camera3d, system);
     }
 
     global.UE = {

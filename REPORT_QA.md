@@ -81,6 +81,21 @@ seumur hidup, sementara `ready` (getter) sudah `true`.
   - Letterbox bars atas/bawah, UI disembunyikan, auto-tour berjalan.
   - Toggle di dock + keyboard `C`.
   - `window.UE` mem-ekspose handle untuk capture screenshot programatik.
+- **FITUR E — Corona Overlay (adaptasi MIT):**
+  - Overlay canvas-2D screen-space yang menggambar glow corona Matahari
+    (sinar radial + arc tapered + inti hangat) dan halo dingin Bulan,
+    diproyeksikan ke posisi 3D-nya per frame.
+  - Code diadaptasi dari **God's Eye View** `src/celestialRing.js`
+    (MIT, Bilawal Sidhu 2026) — bagian MURNI (canvas 2D + math, bebas
+    Cesium) saja: `drawSunRays`, `drawTaperedArc`, `drawMoonHaze`,
+    `*DiscScreenRadius`, `normalizeAngle`, `circularAngleDistance`, dan
+    pola budget/frame-cap/caching-nya. Atribusi MIT dipertahankan di
+    header `js/corona.js` + `THIRD_PARTY_NOTICES.md` + `ASSET_LICENSES.md`.
+  - Performa: frame-cap 30 fps, budget backing-pixel, render-key caching
+    (hanya gambar ulang saat posisi/radius berubah), guard
+    behind-camera, `pointer-events:none`.
+  - **Verifikasi:** live-app headless WebGL2 — corona canvas ter-mount,
+    `corona drew 5981 alpha px (5597 warm)`, e2e 56/56.
 
 ---
 
@@ -90,16 +105,18 @@ seumur hidup, sementara `ready` (getter) sudah `true`.
 | Imersi prioritas | ✅ | Cinematic mode, intro drop, letterbox, tour, emissive planet |
 | Kamera halus | ✅ | Damping eksponensial framerate-independent, handoff focus, `kamera damping konvergen` |
 | Performa tinggi | ✅ | Adaptive DPR, tekstur stagger (tak blocking), `GL error=0`, e2e tanpa hang |
-| Aset legal | ✅ | Bumi = NASA public domain; sisanya 100% prosedural orisinal; 0 byte salinan |
+| Aset legal | ✅ | Bumi = NASA public domain; sisanya 100% prosedural orisinal; adaptasi MIT (corona.js) ber-atribusi penuh |
 | Kode modular | ✅ | 6 modul tanggung-jawab-tunggal, IIFE + "use strict", API `window.*` |
 
 ### HASIL TEST
-- **e2e (jsdom + stub THREE):** 50/50 checks PASS
+- **e2e (jsdom + stub THREE):** 56/56 checks PASS
 - **Live-app (headless Chrome, WebGL2 nyata):** LIVE-APP ALL PASS
   (UE siap, 10 bodies, moon-orbit-earth dist=6.00, render loop hidup,
-  frame render terjadi, semua planet punya geometry)
-- **Aset HTTP:** root + 6 JS + CSS + tekstur Bumi = 200
-- **Lint:** `node --check` clean semua modul
+  frame render terjadi, semua planet punya geometry, corona canvas mounted)
+- **Diag WebGL (17 checks):** ALL PASS — termasuk `corona drew 5981 alpha px (5597 warm)`,
+  `render 5 frames GL error=0`, `textures: 8 planets have maps`
+- **Aset HTTP:** root + 7 JS + CSS + tekstur Bumi = 200
+- **Lint:** `node --check` clean semua modul (termasuk corona.js)
 
 ### ARSITEKTUR MODUL (skala & tanggung jawab)
 ```
@@ -109,10 +126,13 @@ solar-system.js → data orbit (Visual + OrbitAcc) + mesh + tekstur staggered
                   + parenting hierarchy + 2 mode skala + time control
 camera.js       → koordinat bola + damping eksponensial + focus/goSystem/
                   setScaleMode/pullBack + drag/pinch
+corona.js       → overlay screen-space: glow corona Matahari + halo Bulan
+                  (adaptasi MIT dari God's Eye View celestialRing.js)
 ui.js           → panel info, chips, labels, dock, timebar, toggle, keyboard,
                   tour, escapeHTML (anti-XSS)
 app.js          → orkestrator: renderer, raycast drag-safe, double-click,
-                  resize, boot, adaptive DPR, loop, handle window.UE (getter)
+                  resize, boot, adaptive DPR, loop, handle window.UE (getter),
+                  mount + tick corona overlay
 ```
 
 ### CATATAN QA (untuk iteration berikutnya)
@@ -123,3 +143,7 @@ app.js          → orkestrator: renderer, raycast drag-safe, double-click,
 - Boot progress bar belum memetakan 8 tekstur staggered — saat ini hanya
   memetakan 4 tekstur raster Bumi. Opional: tambahkan hook
   `onTextureProgress` ke `stepTextures()`.
+- Corona overlay: glow saat kamera sangat jauh dari Matahari (mode Orbit)
+  bisa jadi terlalu kecil/konsentris — pertimbangkan floor radius minimum
+  agar efek tetap terbaca, atau fade-out saat sunDisc < threshold.
+- `THIRD_PARTY_NOTICES.md` sudah dibuat (TODO QA v1.1 ditutup ✅).

@@ -7,11 +7,17 @@ Senior 3D Dev (S3D) · Animation Engineer (AE) · Performance Engineer (PE) · Q
 ## 0. Mandat
 
 Proyek orisinal "Universe Eye": eksplorasi tata surya sinematik, navigasi mulus,
-fokus pengalaman. ZIP referensi "God's Eye View" HANYA untuk referensi —
+fokus pengalaman. ZIP referensi "God's Eye View" untuk referensi — ambil ide,
 jangan salin identitas/feel. Sumber aset prioritas: NASA, ESA, Solar System Scope,
 Poly Haven, Sketchfab (jika lisensi cocok). Workflow berurutan:
 Audit → Lisensi → Proposal Desain → Implementasi → (iterasi sampai stabil).
 Aturan kualitas: imersi, kamera halus, performa tinggi, aset legal, kode modular.
+
+**Revisi kebijakan aset (2026-09-08):** Kebijakan awal "0 byte dari referensi"
+direvisi atas izin owner — kode MIT dari referensi bisa dipakai asalkan atribusi
+MIT dipertahankan. Hanya bagian murni (canvas 2D + math, bebas Cesium) yang diambil,
+khususnya `src/celestialRing.js` → adaptasi jadi `js/corona.js`. Atribusi MIT
+penuh di `js/corona.js` (header), `THIRD_PARTY_NOTICES.md`, dan `ASSET_LICENSES.md`.
 
 ## 1. FASE AUDIT (RE)
 
@@ -106,9 +112,9 @@ Harness: `test/e2e.js` (jsdom + stub THREE) menjalankan **kode produksi nyata**.
 | Imersi | ✅ intro, tour, damping, fog, korona, bintang, panel sinematik |
 | Kamera halus | ✅ damping eksponensial, follow target bergerak, handoff 1–2 dtk |
 | Performa tinggi | ✅ adaptive DPR, 2 batch bintang, segmen hemat, single CDN dep |
-| Aset legal | ✅ public domain (Bumi) + orisinal (sisanya); audit tertulis |
-| Kode modular | ✅ 6 modul single-responsibility; e2e 29/29 |
-| Originalitas (bukan template generik) | ✅ identitas, shader, copy, UI — semua orisinal; 0 byte dari referensi |
+| Aset legal | ✅ public domain (Bumi) + orisinal (sisanya) + adaptasi MIT ber-atribusi; audit tertulis |
+| Kode modular | ✅ 7 modul single-responsibility (noise/starfield/solar-system/camera/corona/ui/app); e2e 56/56 |
+| Originalitas (bukan template generik) | ✅ identitas, shader, copy, UI — semua orisinal; pola sinematik diambil dari referensi (izin), bukan disalin |
 | Dokumentasi keputusan | ✅ file ini + ASSET_LICENSES.md + README |
 
 **Sisa (honest):** verifikasi visual browser (screenshot/frame grab) belum bisa

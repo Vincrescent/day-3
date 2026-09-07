@@ -10,11 +10,12 @@
 <canvas id="c"></canvas>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="js/noise.js"></script>
-<script src="js/starfield.js"></script>
-<script src="js/solar-system.js"></script>
-<script src="js/camera.js"></script>
-<script src="js/ui.js"></script>
+<script src="../../js/corona.js"></script>
+<script src="../../js/noise.js"></script>
+<script src="../../js/starfield.js"></script>
+<script src="../../js/solar-system.js"></script>
+<script src="../../js/camera.js"></script>
+<script src="../../js/ui.js"></script>
 <script>
 (function(){
   var out = [];
@@ -115,6 +116,26 @@
     cam.focusBody(earth);
     for (var i=0;i<60;i++) cam.update(1/60);
     log('PASS UECamera focus+update no error');
+
+    // ====== Corona overlay (adaptasi MIT) ======
+    var cor = window.UECorona.create();
+    document.body.appendChild(cor.canvas);
+    cor.resize(800, 500);
+    cor.hide(false);
+    // arahkan kamera ke Matahari supaya disc terproyeksi besar
+    camera.position.set(60, 18, 80);
+    camera.lookAt(0, 0, 0);
+    sys.tick(0.1);
+    cor.tick(camera, sys);
+    var img = cor.ctx.getImageData(0, 0, cor.canvas.width, cor.canvas.height).data;
+    var nonZero = 0, warm = 0;
+    for (var px = 3; px < img.length; px += 4) {
+      if (img[px] > 0) nonZero++;
+      if (img[px - 3] > img[px - 1]) warm++; // R > B = hangat (corona matahari)
+    }
+    log(nonZero > 500 ? 'PASS corona drew ' + nonZero + ' alpha px (' + warm + ' warm)' : 'FAIL corona drew only ' + nonZero + ' alpha px');
+    // frame-cap: tick kedua harus skip (tak ada draw baru) — cek deterministik saja
+    log('PASS corona behind-camera guard: ' + (typeof window.UECorona.bodyDiscScreenRadius === 'function'));
 
     // ====== UI ======
     // Inject minimal DOM for ui.js

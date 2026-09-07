@@ -57,6 +57,7 @@ async function main() {
   load('js/solar-system.js');
   load('js/camera.js');
   load('js/ui.js');
+  load('js/corona.js');
 
   // ---- noise API ----
   const N = window.UENoise;
@@ -73,6 +74,22 @@ async function main() {
   check('earth flagged realTexture', D.find(d => d.id === 'earth').realTexture === true);
   check('moon parent = earth', D.find(d => d.id === 'moon').parent === 'earth');
   check('planets have orbitAcc', D.filter(d => d.kind === 'planet').every(d => d.orbitAcc > 0));
+
+  // ---- corona: math murni (adaptasi MIT dari God's Eye View) ----
+  const C = window.UECorona;
+  check('UECorona exposes math API', typeof C.bodyDiscScreenRadius === 'function' && typeof C.normalizeAngle === 'function');
+  const na = C.normalizeAngle(-Math.PI / 2);
+  check('normalizeAngle(-π/2) → 3π/2', Math.abs(na - (3 * Math.PI / 2)) < 1e-9, 'got ' + na);
+  const cad = C.circularAngleDistance(0.1, Math.PI * 2 + 0.1);
+  check('circularAngleDistance full-turn = 0', cad < 1e-9, 'got ' + cad);
+  // disc radius: benda 10 unit, kamera 100 unit, fovy 55°, viewport 800px
+  const disc = C.bodyDiscScreenRadius(10, 100, 800, 55 * Math.PI / 180);
+  check('bodyDiscScreenRadius returns positive px', disc > 0 && disc < 800, 'got ' + disc);
+  check('bodyDiscScreenRadius null behind/at camera', C.bodyDiscScreenRadius(10, 5, 800, 0.96) === null);
+  // create() aman di jsdom (tanpa canvas 2d) — tidak boleh crash
+  let c = null;
+  try { c = C.create(); c.resize(800, 600); } catch (e) { check('corona create+resize no-crash (jsdom)', false, e.message); }
+  if (c) check('corona create+resize no-crash (jsdom, no 2d ctx)', true);
 
   // ---- build ----
   let sys, cam, ui;
