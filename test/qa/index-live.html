@@ -85,5 +85,67 @@
   <script src="js/camera.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>
+
+<script>
+(function(){
+  var out = [];
+  function log(m){ out.push(m); }
+  function tick(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  function finish(){
+    var d = document.createElement('pre');
+    d.id = 'liveprobe';
+    d.style.cssText = 'position:fixed;left:0;top:0;z-index:99999;background:#000c;color:#7CFC00;font:12px/1.4 monospace;padding:8px;white-space:pre-wrap;max-width:60vw';
+    var fail = out.filter(function(l){return /^FAIL/.test(l)}).length;
+    d.textContent = out.join('\n') + '\n==== ' + (fail? fail+' FAIL':'LIVE-APP ALL PASS') + ' ====';
+    document.body.appendChild(d);
+    document.title = (fail? 'FAIL '+fail : 'LIVE OK') + ' | ' + out.length;
+  }
+  function run(){
+    // tunggu UE siap (boot + tekstur bumi load)
+    var tries = 0;
+    (function waitUE(){
+      if (window.UE && window.UE.ready) { start(); }
+      else if (tries++ < 200) { setTimeout(waitUE, 150); }
+      else { log('FAIL window.UE.ready tidak tercapai dalam 30s'); finish(); }
+    })();
+  }
+  function start(){
+    try {
+      log('PASS window.UE siap, version ' + window.UE.version);
+      log('INFO renderer: ' + (window.UE.renderer ? 'ada' : 'TIDAK ADA'));
+      var sys = window.UE.system;
+      log(sys.bodies.length === 10 ? 'PASS system 10 bodies' : 'FAIL bodies=' + sys.bodies.length);
+      // render info (bukti render loop jalan)
+      var r = window.UE.renderer;
+      var calls0 = r.info.render.calls;
+      var moon = sys.bodies[sys.byId('moon')], earth = sys.bodies[sys.byId('earth')], sun = sys.bodies[sys.byId('sun')];
+      var v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3();
+      moon.node.getWorldPosition(v1); earth.node.getWorldPosition(v2); sun.node.getWorldPosition(v3);
+      var dm = v1.distanceTo(v2), ds = v1.distanceTo(v3);
+      log((dm < moon.body.orbit*1.3 && dm > moon.body.orbit*0.7) ? 'PASS live moon-orbit-earth dist=' + dm.toFixed(2) : 'FAIL live moon dist=' + dm.toFixed(2));
+      log(ds > 25 ? 'PASS live moon follows earth (sun-dist ' + ds.toFixed(1) + ')' : 'FAIL live moon at sun dist=' + ds.toFixed(1));
+      // kamera bergerak antar frame = loop hidup
+      var cp0 = window.UE.camera.position.clone();
+      tick(900).then(function(){
+        try {
+          var cp1 = window.UE.camera.position.clone();
+          log(cp1.distanceTo(cp0) > 0.01 ? 'PASS render loop hidup (kamera bergerak ' + cp1.distanceTo(cp0).toFixed(2) + ')' : 'FAIL kamera diam');
+          log('INFO renderer.render.calls ' + calls0 + ' -> ' + r.info.render.calls);
+          log(r.info.render.calls > calls0 || r.info.render.calls > 0 ? 'PASS frame render terjadi (calls=' + r.info.render.calls + ')' : 'FAIL tak ada render call');
+          // planet punya mesh + geometry
+          var bad = sys.bodies.filter(function(b){ return b.body.kind!=='star' && (!b.mesh || !b.mesh.geometry); });
+          log(bad.length ? 'FAIL bodies tanpa geometry: ' + bad.map(function(b){return b.body.id}).join(',') : 'PASS semua planet punya geometry');
+          // intro hilang (boot selesai)
+          log(document.getElementById('intro') === null ? 'PASS intro dihapus setelah boot' : 'INFO intro masih ada (mungkin belum fade)');
+          finish();
+        } catch(e){ log('FAIL probe-2: ' + e.message); finish(); }
+      });
+    } catch(e){ log('FAIL probe: ' + e.message + ' ' + (e.stack||'').split('\n')[1] || ''); finish(); }
+  }
+  // jalankan setelah DOM siap
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+})();
+</script>
+
 </body>
 </html>

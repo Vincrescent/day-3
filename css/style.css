@@ -284,6 +284,80 @@ html, body {
 #credits .sep { opacity: 0.5; }
 #fps { color: var(--cyan); opacity: 0.7; }
 
+/* ---------- timebar (speed control) ---------- */
+#timebar {
+  position: fixed;
+  top: 12px; right: 26px;
+  z-index: 24;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  background: rgba(10, 12, 22, 0.5);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(212, 165, 116, 0.16);
+  border-radius: 30px;
+  opacity: 0;
+  animation: rise 1.2s var(--ease-cine) 2.0s forwards;
+}
+#speed {
+  width: 90px; height: 4px;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+#speed-val {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--gold);
+  min-width: 44px;
+  text-align: right;
+  letter-spacing: 0.06em;
+}
+
+/* ---------- cinematic mode ---------- */
+.cinematic #brand,
+.cinematic #chips,
+.cinematic #dock,
+.cinematic #hint,
+.cinematic #credits,
+.cinematic #timebar {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+.cinematic .body-label { opacity: 0; }
+.cinematic #viewport {
+  background: #000;
+  cursor: default;
+}
+#cinema-bars {
+  display: none;
+  position: fixed; inset: 0;
+  z-index: 18;
+  pointer-events: none;
+}
+.cinematic #cinema-bars { display: block; }
+.cinematic #panel {
+  max-width: 440px;
+  font-size: 14px;
+  z-index: 22;
+}
+.cinematic .letterbox-top,
+.cinematic .letterbox-bottom {
+  display: block;
+  position: fixed; left: 0; right: 0;
+  z-index: 19;
+  pointer-events: none;
+  background: #000;
+}
+.letterbox-top    { height: 12vh; top: 0; }
+.letterbox-bottom { height: 12vh; bottom: 0; }
+
+/* ---------- body-label hover ---------- */
+.body-label:hover {
+  color: var(--gold-bright);
+  transform: translate(-50%, -100%) scale(1.12);
+}
+
 /* ---------- intro ---------- */
 #intro {
   position: fixed; inset: 0;

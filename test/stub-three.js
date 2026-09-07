@@ -13,13 +13,24 @@ function build() {
     constructor() {
       this.position = new Vec3();
       this.children = [];
+      this.parent = null;
       this.visible = true;
       this.userData = {};
       this.rotation = { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } };
+      this.scale = new Vec3(1, 1, 1);
     }
-    add(...objs) { this.children = this.children.concat(objs); return this; }
+    add(...objs) {
+      for (const o of objs) { o.parent = this; this.children.push(o); }
+      return this;
+    }
     remove() {}
-    getWorldPosition(v) { v.copy(this.position); return v; }
+    getWorldPosition(v) {
+      // akumulasi posisi lokal sepanjang rantai parent (tanpa rotasi — cukup untuk test jarak)
+      v.set(0, 0, 0);
+      let p = this;
+      while (p) { v.x += p.position.x; v.y += p.position.y; v.z += p.position.z; p = p.parent; }
+      return v;
+    }
     updateWorldMatrix() {}
   }
   class Group extends Obj3 {}

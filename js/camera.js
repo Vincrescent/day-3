@@ -23,8 +23,9 @@
     this.tTheta = -0.5;       // parameter target (demping ke sini)
     this.tPhi = 1.08;
     this.tRadius = 250;
-    this.minRadius = 6;
-    this.maxRadius = 620;
+    this.mode = 'visual';
+    this.minRadius = 5;
+    this.maxRadius = 640;      // visual; dinaikkan jadi 3600 oleh setScaleMode('orbit')
     this.minPhi = 0.14;
     this.maxPhi = Math.PI - 0.14;
     this.dampOrbit = 2.6;     // lambda rotasi
@@ -107,16 +108,23 @@
   // fokus ke record (planet/Matahari/Bulan) — handoff halus
   UECamera.prototype.focusBody = function (rec, dist) {
     this.followRec = rec;
-    var d = dist || rec.body.radius * 7 + 3;
-    this.tRadius = Math.max(this.minRadius + 0.5, d);
+    var d = dist || rec.body.radius * 6.5 + 2.5;
+    this.tRadius = Math.max(this.minRadius + 0.5, Math.min(this.maxRadius, d));
     // geser sedikit agar planet tidak menempel di tengah (komposisi sinematik)
     this.tTheta += 0.35;
   };
 
   UECamera.prototype.goSystem = function () {
     this.followRec = null;
-    this.tRadius = 250;
+    this.tRadius = this.mode === 'orbit' ? 1400 : 250;
     this.tPhi = 1.08;
+  };
+
+  // ganti mode skala (dipanggil dari setScaleMode di app)
+  UECamera.prototype.setScaleMode = function (m) {
+    this.mode = m;
+    this.maxRadius = m === 'orbit' ? 3600 : 640;
+    if (this.tRadius > this.maxRadius) this.tRadius = this.maxRadius * 0.9;
   };
 
   // pelan-pelan jauhkan (dipakai saat tour pindah planet)

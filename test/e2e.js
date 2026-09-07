@@ -1,7 +1,8 @@
-/* Universe Eye — test/e2e.js
- * QA Engineer harness: jalankan kode NYATA (noise/camera/ui) di jsdom dengan
- * stub THREE minimal (tanpa WebGL). Assert: chips, panel focus, panel hide,
- * orbit toggle, label build, keyboard focus, escapeHTML, camera damping.
+/* Universe Eye — test/e2e.js (v1.1)
+ * QA harness: kode NYATA (noise/camera/ui/solar-system) di jsdom + stub THREE.
+ * Menutupi: data, build, PARENTING BULAN (fix), chips, panel, toggle
+ * (orbit/label/scale/cine), time control, keyboard, tour, damping kamera,
+ * tekstur prosedural (stepTextures), anti-XSS, error tak tertangkap.
  *
  * Run: node test/e2e.js
  */
@@ -18,102 +19,38 @@ let JSDOM;
 try { JSDOM = require(JSDOM_PATH).JSDOM; }
 catch (e) {
   try { JSDOM = require('jsdom').JSDOM; }
-  catch (e2) {
-    console.error('jsdom not found. Install: npm install jsdom');
-    process.exit(2);
-  }
+  catch (e2) { console.error('jsdom not found. Install: npm install jsdom'); process.exit(2); }
 }
 
 const results = [];
-let booted = false;
 function check(name, cond, extra) {
-  results.push({ name: name, ok: !!cond, extra: extra || '' });
-  const tag = cond ? 'PASS' : 'FAIL';
-  console.log('  [' + tag + '] ' + name + (cond ? '' : '  :: ' + (extra || '')));
+  results.push({ name, ok: !!cond });
+  console.log('  [' + (cond ? 'PASS' : 'FAIL') + '] ' + name + (cond ? '' : '  :: ' + (extra || '')));
 }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// ---------- stub THREE (minimal, cukup untuk noise-independent logic) ----------
-function buildTHREEStub() {
-  class Vec3 {
-    constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; }
-    set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }
-    copy(v) { this.x = v.x; this.y = v.y; this.z = v.z; return this; }
-    distanceTo(v) { const dx = this.x - v.x, dy = this.y - v.y, dz = this.z - v.z; return Math.sqrt(dx*dx+dy*dy+dz*dz); }
-  }
-  class Obj3 {
-    constructor() {
-      this.position = new Vec3();
-      this.children = [];
-      this.visible = true;
-      this.userData = {};
-      this.rotation = { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } };
-    }
-    add(...objs) { this.children = this.children.concat(objs); return this; }
-    remove() {}
-    getWorldPosition(v) { v.copy(this.position); return v; }
-    updateWorldMatrix() {}
-  }
-  class Group extends Obj3 {}
-  const THREE = {
-    Vector3: Vec3,
-    Object3D: Obj3,
-    Group: Group,
-    MathUtils: { lerp: (a, b, t) => a + (b - a) * t },
-    // kelas-kelas yang di-referensi modul lain (no-op stub)
-    Color: class { constructor(c) { this.c = c; } setHex(h) {} },
-    WebGLRenderer: class {
-      constructor() { this.domElement = { style: {}, addEventListener: () => {} }; }
-      setPixelRatio() {} setSize() {} render() {}
-      getPixelRatio() { return 1; }
-    },
-    Scene: class { constructor() { this.children = []; } add() {} },
-    PerspectiveCamera: class {
-      constructor(fov, aspect, near, far) {
-        this.fov = fov; this.aspect = aspect; this.near = near; this.far = far;
-        this.position = new Vec3();
-      }
-      updateProjectionMatrix() {}
-      lookAt() {}
-      project(v) { v.x = 0; v.y = 0; v.z = 0; return v; }
-    },
-    FogExp2: class {}, AmbientLight: class {}, PointLight: class {}, DirectionalLight: class {},
-    BufferGeometry: class { constructor() { this.attributes = {}; } setAttribute() { return this; } setFromPoints() { return this; } },
-    BufferAttribute: class { constructor(a, n) { this.array = a; this.itemSize = n; } },
-    Line: class extends Obj3 {}, LineBasicMaterial: class {}, Mesh: class extends Obj3 {}, MeshPhongMaterial: class {},
-    MeshBasicMaterial: class {}, Sprite: class extends Obj3 {}, SpriteMaterial: class {},
-    Points: class extends Obj3 {}, ShaderMaterial: class {}, SphereGeometry: class {}, RingGeometry: class {},
-    CanvasTexture: class { constructor() {} }, TextureLoader: class { load(u, ok, pr, err) { if (err) setTimeout(() => err(), 0); } },
-    AdditiveBlending: 2, sRGBEncoding: 3001, DoubleSide: 2,
-  };
-  return THREE;
+function report() {
+  const pass = results.filter(r => r.ok).length;
+  const fail = results.length - pass;
+  console.log('\n==== e2e v1.1 summary ====');
+  console.log('  ' + pass + '/' + results.length + ' checks passed, ' + fail + ' failed');
+  process.exit(fail === 0 ? 0 : 1);
 }
 
 async function main() {
-  console.log('Universe Eye e2e (jsdom) — ' + new Date().toISOString());
-  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-
-  // buang tag <script src=...> (kami eval manual agar kontrol urutan)
-  const htmlNoScripts = html.replace(/<script[\s\S]*?<\/script>/g, '');
-
-  const dom = new JSDOM(htmlNoScripts, {
-    runScripts: 'outside-only',
-    pretendToBeVisual: true,
-    url: 'http://localhost/',
-  });
+  console.log('Universe Eye e2e v1.1 (jsdom) — ' + new Date().toISOString());
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8').replace(/<script[\s\S]*?<\/script>/g, '');
+  const dom = new JSDOM(html, { runScripts: 'outside-only', pretendToBeVisual: true, url: 'http://localhost/' });
   const { window } = dom;
   const { document } = window;
 
-  // polyfill browser-ish
-  window.THREE = buildTHREEStub();
-  if (!window.matchMedia) window.matchMedia = () => ({ matches: false, addListener(){}, removeListener(){} });
-  window.innerWidth = 1280; window.innerHeight = 720;
-  window.devicePixelRatio = 1;
+  window.THREE = require('./stub-three')();
+  if (!window.matchMedia) window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {} });
+  window.innerWidth = 1280; window.innerHeight = 720; window.devicePixelRatio = 1;
 
   const errors = [];
   window.addEventListener('error', (e) => errors.push(e.message));
 
-  // load app modules (order = index.html) dalam scope window
   const load = (f) => window.eval(fs.readFileSync(path.join(ROOT, f), 'utf8'));
   load('js/noise.js');
   load('js/starfield.js');
@@ -127,121 +64,169 @@ async function main() {
   const rng = new N.RNG(42);
   const a = rng.next(), b = rng.next();
   check('RNG deterministic & in [0,1)', a >= 0 && a < 1 && b >= 0 && b < 1);
-  const n1 = N.noise3(0.1, 0.2, 0.3);
-  check('noise3 returns finite number', Number.isFinite(n1), String(n1));
+  check('noise3 finite', Number.isFinite(N.noise3(0.1, 0.2, 0.3)));
 
   // ---- planet data ----
   const D = window.UEPlanetData;
-  check('8 planets + sun + moon defined', D.length === 10, 'got ' + D.length);
-  const ids = D.map(d => d.id);
-  check('all expected body ids present', ['sun','mercury','venus','earth','moon','mars','jupiter','saturn','uranus','neptune'].every(i => ids.includes(i)), ids.join(','));
+  check('10 bodies (sun+8 planet+moon)', D.length === 10, 'got ' + D.length);
+  check('all expected ids', ['sun','mercury','venus','earth','moon','mars','jupiter','saturn','uranus','neptune'].every(i => D.map(d => d.id).includes(i)));
   check('earth flagged realTexture', D.find(d => d.id === 'earth').realTexture === true);
-  check('moon has parent earth', D.find(d => d.id === 'moon').parent === 'earth');
+  check('moon parent = earth', D.find(d => d.id === 'moon').parent === 'earth');
+  check('planets have orbitAcc', D.filter(d => d.kind === 'planet').every(d => d.orbitAcc > 0));
 
-  // ---- build solar system (canvas-stubbed: canvas 2d context returns null -> fallback) ----
-  // jsdom canvas: getContext('2d') returns null without node-canvas -> our code must not crash
+  // ---- build ----
   let sys, cam, ui;
   try {
     sys = window.UESolarSystem.build({});
-    cam = new window.UECamera(new window.THREE.PerspectiveCamera(55, 16/9, 0.1, 3000), { style: {}, addEventListener: () => {}, setPointerCapture: () => {} });
-    ui = new window.UEUI(sys, cam);
-    booted = true;
+    cam = new window.UECamera(new window.THREE.PerspectiveCamera(55, 16 / 9, 0.1, 6000), { style: {}, addEventListener: () => {}, setPointerCapture: () => {} });
+    ui = new window.UEUI(sys, cam, { onScaleMode: () => {} });
   } catch (err) {
-    check('solar system builds without canvas', false, err.message);
+    check('build system+camera+ui', false, err.message);
     report();
     return;
   }
-  check('solar system builds without canvas', booted);
-  check('10 bodies in system', sys.bodies.length === 10, String(sys.bodies.length));
+  check('build system+camera+ui', true);
+  check('10 bodies in system', sys.bodies.length === 10);
 
-  // ---- chips rendered ----
+  // ---- FIX QA: parenting bulan ----
+  const moonRec = sys.bodies[sys.byId('moon')];
+  const earthRec = sys.bodies[sys.byId('earth')];
+  function inScene(o) {
+    let p = o;
+    while (p && p.parent) p = p.parent;
+    // root harus group sistem (bukan null), artinya terparenting penuh
+    return o === p ? false : p !== null;
+  }
+  check('FIX: moon terparenting ke scene graph (bukan dangling)', moonRec.node.parent !== null && inScene(moonRec.node));
+  sys.tick(2.5);
+  const d1 = moonRec.worldPos.distanceTo(earthRec.worldPos);
+  sys.tick(3.0);
+  const d2 = moonRec.worldPos.distanceTo(earthRec.worldPos);
+  const MOON_ORBIT = moonRec.body.orbit; // 6.0
+  check('FIX: jarak bulan-Bumi stabil ~6.0 (bukan ~0 di Matahari)', Math.abs(d1 - MOON_ORBIT) < 0.5 && Math.abs(d2 - MOON_ORBIT) < 0.5, 'd1=' + d1.toFixed(2) + ' d2=' + d2.toFixed(2));
+  const moonFromSun = moonRec.worldPos.distanceTo(new window.THREE.Vector3(0, 0, 0));
+  check('FIX: bulan ikut Bumi (jarak ke Matahari ~45, bukan ~4)', moonFromSun > 25, 'dist=' + moonFromSun.toFixed(1));
+
+  // ---- chips ----
   const chips = document.querySelectorAll('#chips .chip');
-  check('10 chips rendered (system + 9 bodies)', chips.length === 10, 'got ' + chips.length);
+  check('10 chips', chips.length === 10, 'got ' + chips.length);
 
-  // ---- focus a planet via chip -> panel shows ----
+  // ---- focus earth ----
   const earthChip = Array.from(chips).find(c => c.getAttribute('data-body') === 'earth');
-  check('earth chip found', !!earthChip);
   earthChip.click();
-  await sleep(30);
+  await sleep(20);
   const panel = document.getElementById('panel');
-  check('panel visible after focus', !panel.classList.contains('hidden') && panel.classList.contains('show'));
-  check('panel name = Bumi', document.getElementById('p-name').textContent === 'Bumi', document.getElementById('p-name').textContent);
-  const factRows = document.querySelectorAll('#p-facts .fact');
-  check('panel facts rendered (4 rows)', factRows.length === 4, 'got ' + factRows.length);
-  check('active chip = earth', earthChip.classList.contains('active'));
-  check('camera following earth', cam.followRec && cam.followRec.body.id === 'earth');
+  check('panel visible', !panel.classList.contains('hidden') && panel.classList.contains('show'));
+  check('panel name Bumi', document.getElementById('p-name').textContent === 'Bumi');
+  check('facts 4 rows', document.querySelectorAll('#p-facts .fact').length === 4);
+  check('active chip earth', earthChip.classList.contains('active'));
+  check('camera follows earth', cam.followRec && cam.followRec.body.id === 'earth');
 
-  // ---- labels built ----
-  const labels = document.querySelectorAll('.body-label');
-  check('10 body labels built', labels.length === 10, 'got ' + labels.length);
+  // ---- labels ----
+  check('10 labels built', document.querySelectorAll('.body-label').length === 10);
+  const bl = document.getElementById('btn-labels');
+  bl.click();
+  check('labels off', bl.getAttribute('aria-pressed') === 'false' && ui.labelsOn === false);
+  bl.click();
+  check('labels on', bl.getAttribute('aria-pressed') === 'true');
 
   // ---- orbit toggle ----
   const bo = document.getElementById('btn-orbits');
   bo.click();
-  check('orbits hidden after toggle', sys.orbitLines.every(l => l.visible === false));
+  check('orbits hidden', sys.orbitLines.every(l => l.visible === false));
   bo.click();
-  check('orbits visible after 2nd toggle', sys.orbitLines.every(l => l.visible === true));
+  check('orbits visible', sys.orbitLines.every(l => l.visible === true));
 
-  // ---- goSystem hides panel ----
+  // ---- FITUR B: scale mode ----
+  const bs = document.getElementById('btn-scale');
+  const neptune = sys.bodies[sys.byId('neptune')];
+  check('scale starts visual', sys.mode() === 'visual' && cam.mode === 'visual');
+  bs.click();
+  check('scale -> orbit (camera limit 3600)', sys.mode() === 'orbit' && cam.mode === 'orbit' && cam.maxRadius === 3600);
+  check('orbit: neptune -> 30.07AU*60', Math.abs(neptune.orbitTarget - 30.07 * 60) < 1, 'target=' + neptune.orbitTarget);
+  bs.click();
+  check('scale -> visual (back to 205)', sys.mode() === 'visual' && Math.abs(neptune.orbitTarget - 205) < 0.5);
+
+  // ---- FITUR D: cinematic ----
+  const bc = document.getElementById('btn-cine');
+  bc.click();
+  check('cine on: class + auto-tour', document.body.classList.contains('cinematic') && ui.tourOn === true);
+  check('cine: letterbox present', document.getElementById('cinema-bars') !== null);
+  bc.click();
+  check('cine off: tour stopped', !document.body.classList.contains('cinematic') && ui.tourOn === false);
+
+  // ---- FITUR A: time control ----
+  const tp = document.getElementById('btn-pause');
+  const spd = document.getElementById('speed');
+  check('time 1x awal', ui.timeScale === 1);
+  tp.click();
+  check('pause -> 0x', ui.timeScale === 0 && tp.innerHTML.indexOf('Main') >= 0);
+  tp.click();
+  check('resume -> 1x', ui.timeScale === 1);
+  spd.value = '4';
+  spd.dispatchEvent(new window.Event('input', { bubbles: true }));
+  check('slider 4x', ui.timeScale === 4 && document.getElementById('speed-val').textContent === '4.00×');
+  spd.value = '1';
+  spd.dispatchEvent(new window.Event('input', { bubbles: true }));
+  // verifikasi: tick dengan timeScale 0 tidak menggerakkan orbit
+  sys.tick(1.0, 1);
+  const eAng1 = Math.atan2(earthRec.node.position.z, earthRec.node.position.x);
+  sys.tick(0, 10);
+  const eAng2 = Math.atan2(earthRec.node.position.z, earthRec.node.position.x);
+  check('tick dt=0 tidak menggerakkan (pause)', eAng1 === eAng2);
+
+  // ---- goSystem ----
   document.getElementById('btn-home').click();
-  await sleep(30);
-  check('panel hidden after goSystem', panel.classList.contains('hidden'));
-  check('camera target back to system', cam.followRec === null);
+  await sleep(20);
+  check('panel hidden (goSystem)', panel.classList.contains('hidden'));
+  check('camera -> system', cam.followRec === null);
 
-  // ---- keyboard focus (1-9: mercury..neptune; 3=earth, 5=mars) ----
+  // ---- keyboard ----
   window.dispatchEvent(new window.KeyboardEvent('keydown', { key: '3' }));
-  await sleep(30);
-  check('keyboard 3 focuses Earth', document.getElementById('p-name').textContent === 'Bumi', document.getElementById('p-name').textContent);
+  await sleep(20);
+  check('key 3 -> Earth', document.getElementById('p-name').textContent === 'Bumi');
   window.dispatchEvent(new window.KeyboardEvent('keydown', { key: '5' }));
-  await sleep(30);
-  check('keyboard 5 focuses Mars', document.getElementById('p-name').textContent === 'Mars', document.getElementById('p-name').textContent);
-
-  // ---- keyboard 0 => system ----
+  await sleep(20);
+  check('key 5 -> Mars', document.getElementById('p-name').textContent === 'Mars');
+  window.dispatchEvent(new window.KeyboardEvent('keydown', { key: ' ' }));
+  check('space -> pause', ui.timeScale === 0);
+  window.dispatchEvent(new window.KeyboardEvent('keydown', { key: ' ' }));
+  check('space -> resume', ui.timeScale === 1);
   window.dispatchEvent(new window.KeyboardEvent('keydown', { key: '0' }));
-  await sleep(30);
-  check('keyboard 0 returns to system', panel.classList.contains('hidden'));
+  await sleep(20);
+  check('key 0 -> system', panel.classList.contains('hidden'));
 
-  // ---- tour toggle ----
+  // ---- tour ----
   const bt = document.getElementById('btn-tour');
   bt.click();
-  check('tour on (aria-pressed true)', bt.getAttribute('aria-pressed') === 'true');
+  check('tour on', bt.getAttribute('aria-pressed') === 'true' && ui.tourOn);
   bt.click();
-  check('tour off (aria-pressed false)', bt.getAttribute('aria-pressed') === 'false');
+  check('tour off', bt.getAttribute('aria-pressed') === 'false' && !ui.tourOn);
 
-  // ---- camera damping converges ----
-  const startTheta = cam.theta;
+  // ---- damping kamera ----
   for (let i = 0; i < 120; i++) cam.update(1 / 60);
-  check('camera theta damps toward target', Math.abs(cam.theta - cam.tTheta) < 0.5, 'theta=' + cam.theta.toFixed(3) + ' target=' + cam.tTheta.toFixed(3));
+  check('kamera damping konvergen', Math.abs(cam.theta - cam.tTheta) < 0.5);
 
-  // ---- escapeHTML (XSS) — UI uses textContent; verify no raw HTML injection path ----
-  // We verify by injecting a hostile name through the data and checking panel uses textContent.
+  // ---- FITUR: tekstur prosedural staggered ----
+  check('texture queue = 8 (7 planet + bulan; bumi raster, matahari shader)', sys.texturesRemaining() === 8, 'got ' + sys.texturesRemaining());
+  let n = 0;
+  while (sys.texturesRemaining() > 0 && n < 20) { sys.stepTextures(); n++; }
+  check('stepTextures mengosongkan queue', sys.texturesRemaining() === 0, 'left=' + sys.texturesRemaining() + ' after ' + n + ' frames');
+
+  // ---- anti-XSS ----
   const hostile = window.UEPlanetData.find(d => d.id === 'mercury');
   const orig = hostile.name;
   hostile.name = '<img src=x onerror=window.__xss=1>';
-  const merChips = Array.from(document.querySelectorAll('#chips .chip'));
-  // focusId uses showPanel -> textContent
-  window.UEUI && document.getElementById && (() => {
-    // re-focus mercury by id
-    const mChip = merChips.find(c => c.getAttribute('data-body') === 'mercury');
-    mChip.click();
-  })();
-  await sleep(20);
+  Array.from(document.querySelectorAll('#chips .chip')).find(c => c.getAttribute('data-body') === 'mercury').click();
+  await sleep(15);
   const rendered = document.getElementById('p-name').innerHTML;
   hostile.name = orig;
-  check('hostile name escaped in panel (no live <img>)', !/^\s*<img/i.test(rendered) && !window.__xss, 'innerHTML=' + rendered.slice(0, 40));
+  check('XSS di-escape (tak ada <img> live)', !/^\s*<img/i.test(rendered) && !window.__xss);
 
-  // ---- no runtime errors ----
-  check('no uncaught window errors', errors.length === 0, errors.join(' | '));
+  // ---- errors ----
+  check('no uncaught errors', errors.length === 0, errors.join(' | '));
 
   report();
-}
-
-function report() {
-  const pass = results.filter(r => r.ok).length;
-  const fail = results.length - pass;
-  console.log('\n==== e2e summary ====');
-  console.log('  ' + pass + '/' + results.length + ' checks passed, ' + fail + ' failed');
-  process.exit(fail === 0 ? 0 : 1);
 }
 
 main().catch(err => { console.error('e2e crashed:', err); process.exit(3); });

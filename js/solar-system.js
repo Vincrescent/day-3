@@ -1,6 +1,7 @@
-/* Universe Eye — solar-system.js
- * Data tata surya (fakta publik, public domain) + mesh + tekstur prosedural
- * orisinal (canvas, wrap-aware seam) + orbit line + animasi.
+/* Universe Eye — solar-system.js (v1.1 — QA fix pass)
+ * Data tata surya (fakta publik) + mesh + tekstur prosedural orisinal
+ * (canvas, wrap-aware seam, STAGGERED per-frame agar tak memblokir) +
+ * orbit line + animasi + 2 mode skala (Visual / Orbit-akurat) + time control.
  * Bumi = satu-satunya tekstur raster (NASA public domain via three-globe).
  * Window.UESolarSystem, Window.UEPlanetData
  */
@@ -8,66 +9,67 @@
   'use strict';
 
   // ---------- DATA ----------
-  // Skala visual: jarak dipadatkan agar seluruh sistem tetap terbaca (visual compression);
-  // urutan, kemiringan, inklinasi, dan rasio periode tetap akurat secara relatif.
+  // orbit  = jarak mode VISUAL (kompresi artistik, sistem terbaca penuh)
+  // orbitAcc = jarak mode ORBIT (1 AU = 60 unit, skala akurat relatif)
   var AU = 'Jarak ke Matahari';
+  var AU_UNITS = 60;
   var BODIES = [
     { id:'sun', name:'Matahari', latin:'Sol', kind:'star',
-      radius:10, orbit:0, period:0, incl:0, tilt:7.25, spin:0.010, seed:3,
+      radius:10, orbit:0, orbitAcc:0, period:0, incl:0, tilt:7.25, spin:0.010, seed:3,
       color:0xffc46b,
       facts:[['Diameter','1.392.700 km'],['Permukaan','± 5.500 °C'],['Rotasi','25–35 hari'],['Umur','± 4,6 miliar tahun']],
       quote:'Bintang yang menjadi matahari bagi seluruh tata surya.',
       src:'NASA / ESA — data publik' },
     { id:'mercury', name:'Merkurius', latin:'Mercurius', kind:'planet',
-      radius:1.0, orbit:24, period:87.97, incl:7.0, tilt:0.03, spin:0.020, seed:11,
+      radius:1.6, orbit:26, orbitAcc:0.39 * AU_UNITS, period:87.97, incl:7.0, tilt:0.03, spin:0.020, seed:11,
       color:0x9a8f83,
       facts:[['Diameter','4.879 km'],[AU,'57,9 juta km (0,39 AU)'],['Periode orbit','88 hari'],['Suhu','−173 … 427 °C']],
       quote:'Terkecil dan tercepat — mengelilingi Matahari lebih cepat dari bulan purnama.',
       src:'NASA / JPL — data publik' },
     { id:'venus', name:'Venus', latin:'Venus', kind:'planet',
-      radius:1.9, orbit:34, period:224.7, incl:3.39, tilt:177.4, spin:-0.016, seed:23,
+      radius:2.9, orbit:36, orbitAcc:0.72 * AU_UNITS, period:224.7, incl:3.39, tilt:177.4, spin:-0.016, seed:23,
       color:0xd8b98a,
       facts:[['Diameter','12.104 km'],[AU,'108,2 juta km (0,72 AU)'],['Periode orbit','225 hari'],['Suhu permukaan','± 465 °C']],
       quote:'Planet terpanas — selimut karbon dioksida yang tak tertembusi cahaya.',
       src:'NASA / ESA — data publik' },
     { id:'earth', name:'Bumi', latin:'Terra', kind:'planet',
-      radius:2.0, orbit:45, period:365.25, incl:0.0, tilt:23.44, spin:0.030, seed:37,
+      radius:3.0, orbit:48, orbitAcc:1.00 * AU_UNITS, period:365.25, incl:0.0, tilt:23.44, spin:0.030, seed:37,
       color:0x4a7fb5, realTexture:true,
       facts:[['Diameter','12.742 km'],[AU,'149,6 juta km (1 AU)'],['Periode orbit','365,25 hari'],['Suhu rata-rata','15 °C']],
       quote:'Satu-satunya tempat yang kita ketahui menatap kembali ke langit.',
       src:'Imagery: NASA (public domain) via three-globe' },
     { id:'moon', name:'Bulan', latin:'Luna', kind:'moon', parent:'earth',
-      radius:0.6, orbit:4.4, period:27.32, incl:5.14, tilt:6.7, spin:0.012, seed:41,
+      radius:0.9, orbit:6.0, orbitAcc:6.0, period:27.32, incl:5.14, tilt:6.7, spin:0.012, seed:41,
       color:0xb9b6b0,
       facts:[['Diameter','3.474 km'],['Jarak ke Bumi','384.400 km'],['Periode orbit','27,3 hari'],['Peran','Menstabilkan sumbu Bumi']],
       quote:'Satelit tua yang menjaga kemiringan Bumi tetap tenang.',
       src:'NASA — data publik' },
     { id:'mars', name:'Mars', latin:'Mars', kind:'planet',
-      radius:1.4, orbit:58, period:686.98, incl:1.85, tilt:25.19, spin:0.029, seed:53,
+      radius:2.2, orbit:62, orbitAcc:1.52 * AU_UNITS, period:686.98, incl:1.85, tilt:25.19, spin:0.029, seed:53,
       color:0xb0532e,
       facts:[['Diameter','6.779 km'],[AU,'227,9 juta km (1,52 AU)'],['Periode orbit','687 hari'],['Suhu rata-rata','−63 °C']],
       quote:'Gurun merah — es di kutub, badai debu yang bisa menutupi planet.',
       src:'NASA / MRO — data publik' },
     { id:'jupiter', name:'Jupiter', latin:'Jupiter', kind:'planet',
-      radius:5.5, orbit:95, period:4332.6, incl:1.30, tilt:3.13, spin:0.055, seed:67,
+      radius:7.5, orbit:100, orbitAcc:5.20 * AU_UNITS, period:4332.6, incl:1.30, tilt:3.13, spin:0.055, seed:67,
       color:0xc9a578,
       facts:[['Diameter','139.820 km'],[AU,'778,5 juta km (5,20 AU)'],['Periode orbit','11,9 tahun'],['Rotasi','9,9 jam']],
       quote:'Raksasa gas — Bintik Merah besarnya selebar Bumi.',
       src:'NASA / Juno — data publik' },
     { id:'saturn', name:'Saturnus', latin:'Saturnus', kind:'planet', rings:true,
-      radius:4.8, orbit:130, period:10759, incl:2.49, tilt:26.73, spin:0.050, seed:71,
+      radius:6.4, orbit:136, orbitAcc:9.54 * AU_UNITS, period:10759, incl:2.49, tilt:26.73, spin:0.050, seed:71,
       color:0xd6bd8f,
       facts:[['Diameter','116.460 km'],[AU,'1,43 miliar km (9,54 AU)'],['Periode orbit','29,4 tahun'],['Kepadatan','lebih ringan dari air']],
       quote:'Mahkota cincin es — struktur yang bisa mengapung di lautan.',
       src:'NASA / Cassini — data publik' },
     { id:'uranus', name:'Uranus', latin:'Uranus', kind:'planet',
-      radius:3.2, orbit:165, period:30687, incl:0.77, tilt:97.77, spin:-0.035, seed:83,
+      radius:4.4, orbit:172, orbitAcc:19.2 * AU_UNITS, period:30687, incl:0.77, tilt:97.77, spin:-0.035, seed:83,
       color:0x7fd4d9,
       facts:[['Diameter','50.724 km'],[AU,'2,87 miliar km (19,2 AU)'],['Periode orbit','84 tahun'],['Kemiringan','97,8° — berbaring']],
       quote:'Berotasi dengan sisi — tiap musimnya berlangsung dua dekade penuh.',
       src:'NASA / Voyager 2 — data publik' },
     { id:'neptune', name:'Neptunus', latin:'Neptunus', kind:'planet',
-      radius:3.1, orbit:195, period:60190, incl:1.77, tilt:28.32, spin:0.038, seed:97,
+      radius:4.3, orbit:205, orbitAcc:30.07 * AU_UNITS, period:60190, incl:1.77, tilt:28.32, spin:0.038, seed:97,
       color:0x2f5fd0,
       facts:[['Diameter','49.244 km'],[AU,'4,49 miliar km (30,1 AU)'],['Periode orbit','165 tahun'],['Angin','hingga 2.100 km/j']],
       quote:'Angin tercepat di tata surya, dibalut biru cobalt yang dalam.',
@@ -83,7 +85,7 @@
     var cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     var ctx = cv.getContext('2d');
-    if (!ctx) return null; // env tanpa canvas (headless) — fallback warna polos
+    if (!ctx) return null; // env tanpa canvas (headless) — fallback warna
     return { cv: cv, ctx: ctx, img: ctx.createImageData(W, H) };
   }
 
@@ -110,7 +112,7 @@
     });
   }
 
-  function buildMercury(seed) {
+  function buildMercury() {
     var c = makeCanvas(); if (!c) return null;
     for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
       var u = x / W, v = y / H;
@@ -124,7 +126,7 @@
     return finalize(c);
   }
 
-  function buildMoon(seed) {
+  function buildMoon() {
     var c = makeCanvas(); if (!c) return null;
     for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
       var u = x / W, v = y / H;
@@ -138,7 +140,7 @@
     return finalize(c);
   }
 
-  function buildVenus(seed) {
+  function buildVenus() {
     var c = makeCanvas(); if (!c) return null;
     for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
       var u = x / W, v = y / H;
@@ -153,7 +155,7 @@
     return finalize(c);
   }
 
-  function buildMars(seed) {
+  function buildMars() {
     var c = makeCanvas(); if (!c) return null;
     for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
       var u = x / W, v = y / H;
@@ -171,7 +173,7 @@
     return finalize(c);
   }
 
-  function buildJupiter(seed) {
+  function buildJupiter() {
     var c = makeCanvas(); if (!c) return null;
     for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
       var u = x / W, v = y / H;
@@ -182,7 +184,6 @@
       var m = 0.5 + 0.5 * band;
       var r = 205 + m * 40 + fine * 12, g = 168 + m * 48 + fine * 8, b = 128 + m * 52;
       if (m < 0.32) { r = 148 + m * 60; g = 84 + m * 50; b = 52 + m * 40; }
-      // Bintik Merah Besar (Great Red Spot)
       var du = Math.abs(u - 0.30); du = Math.min(du, 1 - du);
       var dv = v - 0.615;
       var dd = Math.sqrt(du * du * 3.4 + dv * dv * 26);
@@ -198,7 +199,7 @@
     return finalize(c);
   }
 
-  function buildSaturn(seed) {
+  function buildSaturn() {
     var c = makeCanvas(); if (!c) return null;
     for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
       var u = x / W, v = y / H;
@@ -243,12 +244,12 @@
     if (!ctx) return null;
     var img = ctx.createImageData(S, T);
     for (var x = 0; x < S; x++) {
-      var t = x / S; // 0 = tepi dalam, 1 = tepi luar
+      var t = x / S;
       var n  = 0.5 + 0.5 * UENoise.noise3(t * 22, 3.7, 1.2);
       var n2 = 0.5 + 0.5 * UENoise.noise3(t * 90, 8.1, 4.4);
       var a = 0.55 + 0.35 * n + 0.25 * n2;
       if (t > 0.62 && t < 0.70) a *= 0.12;   // Celah Cassini
-      if (t > 0.36 && t < 0.39) a *= 0.35;   // celah halus
+      if (t > 0.36 && t < 0.39) a *= 0.35;
       if (t < 0.06) a *= t / 0.06;
       if (t > 0.96) a *= (1 - t) / 0.04;
       var shade = 196 + n * 40 + n2 * 18;
@@ -264,14 +265,7 @@
     return tex;
   }
 
-  var TEX_BUILDS = {
-    mercury: buildMercury, venus: buildVenus, mars: buildMars,
-    jupiter: buildJupiter, saturn: buildSaturn, moon: buildMoon
-  };
-
   // ---------- SCENE ----------
-  // Periode visual: kompresi (hari^0.62) agar semua planet bergerak terbaca,
-  // tetap menjaga urutan kecepatan (Merkurius tercepat, Neptunus terlama).
   var YEAR_UNITS = 34.0;
   function visualPeriod(days) { return Math.pow(days / 365.25, 0.62) * YEAR_UNITS; }
 
@@ -294,43 +288,50 @@
     }));
   }
 
+  var PLANET_TEX = { mercury: buildMercury, venus: buildVenus, mars: buildMars, jupiter: buildJupiter, saturn: buildSaturn, moon: buildMoon };
+
   function build(assets) {
     var group = new THREE.Group();
-    var bodies = [];      // record per benda
-    var orbitLines = [];  // garis orbit (toggle-able)
+    var bodies = [];
+    var orbitLines = [];
+    var textureQueue = [];   // { rec, fn } — diproses 1 per frame (staggered)
+    var MODES = {
+      visual: { maxR: 640, fog: 0.00042, starScale: 1,   labelFar: 460 },
+      orbit:  { maxR: 3600, fog: 0.00010, starScale: 4.5, labelFar: 3200 }
+    };
+    var mode = 'visual';
 
-    function materialFor(body, tex) {
+    function placeholderMaterial(body) {
+      return new THREE.MeshPhongMaterial({
+        color: body.color,
+        emissive: new THREE.Color(body.color),
+        emissiveIntensity: 0.38,
+        shininess: 5
+      });
+    }
+
+    function makeBody(body) {
+      var seg = body.radius > 5 ? 56 : (body.radius > 2.5 ? 48 : 40);
+      var geo = new THREE.SphereGeometry(body.radius, seg, Math.max(20, seg / 2 | 0));
+      var mesh;
       if (body.id === 'earth' && assets && assets.earthMap) {
-        return new THREE.MeshPhongMaterial({
+        mesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({
           map: assets.earthMap,
           bumpMap: assets.earthBump || null,
           bumpScale: 1.6,
           specularMap: assets.earthWater || null,
-          specular: new THREE.Color(0x334455),
+          specular: new THREE.Color(0x445566),
           shininess: 26,
           emissiveMap: assets.earthNight || null,
           emissive: new THREE.Color(0xffffff),
-          emissiveIntensity: 0.85
-        });
+          emissiveIntensity: 0.9
+        }));
+      } else if (body.kind !== 'star') {
+        // placeholder warna dulu — tekstur prosedural menyusul per frame (staggered)
+        mesh = new THREE.Mesh(geo, placeholderMaterial(body));
+      } else {
+        mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: body.color }));
       }
-      if (tex) return new THREE.MeshPhongMaterial({ map: tex, shininess: 5, specular: new THREE.Color(0x111111) });
-      return new THREE.MeshPhongMaterial({ color: body.color, shininess: 5 });
-    }
-
-    function makeBody(body) {
-      var seg = body.radius > 4 ? 56 : (body.radius > 2 ? 48 : 40);
-      var geo = new THREE.SphereGeometry(body.radius, seg, Math.max(20, seg / 2 | 0));
-      var tex = null;
-      if (body.kind !== 'star' && !body.realTexture) {
-        if (body.id === 'uranus') tex = buildIceGiant([92, 178, 186], [126, 214, 221], false);
-        else if (body.id === 'neptune') tex = buildIceGiant([36, 74, 178], [62, 112, 214], true);
-        else {
-          var fn = TEX_BUILDS[body.id];
-          if (fn) tex = fn(body.seed || 1);
-        }
-      }
-      var mesh = new THREE.Mesh(geo, materialFor(body, tex));
-      // kemiringan sumbu (axial tilt) — visual, di rotasi pada Z mesh
       mesh.rotation.z = (body.tilt * Math.PI / 180) * 0.5;
       mesh.userData.bodyId = body.id;
 
@@ -340,8 +341,18 @@
       var rec = {
         body: body, mesh: mesh, node: node, pivot: null,
         worldPos: new THREE.Vector3(),
-        phase: ((body.seed || 1) * 0.83) % 6.2831853
+        phase: ((body.seed || 1) * 0.83) % 6.2831853,
+        orbitCur: body.orbit, orbitTarget: body.orbit,
+        orbitBase: body.orbit
       };
+
+      // antrekan tekstur prosedural (diproses 1 per frame agar boot tak memblokir)
+      if (body.kind !== 'star' && !body.realTexture) {
+        var fn = PLANET_TEX[body.id];
+        if (body.id === 'uranus') fn = function () { return buildIceGiant([92, 178, 186], [126, 214, 221], false); };
+        if (body.id === 'neptune') fn = function () { return buildIceGiant([36, 74, 178], [62, 112, 214], true); };
+        if (fn) textureQueue.push({ rec: rec, fn: fn });
+      }
 
       if (body.kind === 'star') {
         rec.node.position.set(0, 0, 0);
@@ -373,14 +384,10 @@
       return rec;
     }
 
-    // orbit line: lingkaran lokal di bidang XZ, miring inklinasi + yaw per planet
     function makeOrbitPivot(body, rec) {
       var pivot = new THREE.Object3D();
-      var e = (body.incl / 180) * Math.PI * 0.16; // inklinasi visual (diperkecil agar terbaca)
+      var e = (body.incl / 180) * Math.PI * 0.16;
       pivot.rotation.set(e, ((body.seed || 1) * 0.71) % 6.283, 0, 'YXZ');
-      group.add(pivot);
-      rec.pivot = pivot;
-
       if (body.kind !== 'moon') {
         var N = 160, pts = [];
         for (var i = 0; i <= N; i++) {
@@ -389,7 +396,7 @@
         }
         var line = new THREE.Line(
           new THREE.BufferGeometry().setFromPoints(pts),
-          new THREE.LineBasicMaterial({ color: 0x5a6b8c, transparent: true, opacity: 0.20 })
+          new THREE.LineBasicMaterial({ color: 0x5a6b8c, transparent: true, opacity: 0.22 })
         );
         pivot.add(line);
         orbitLines.push(line);
@@ -405,39 +412,73 @@
       if (body.kind === 'star') {
         group.add(rec.node);
       } else if (body.parent) {
+        // FIX QA: pivot ditambahkan ke node induk (Bumi), dan NODE bulan
+        // masuk pivot — sehingga bulan benar-benar mengorbit Bumi.
         var parentRec = bodies[byId(body.parent)];
-        makeOrbitPivot(body, rec);
-        parentRec.node.add(rec.pivot);   // pivot bulan mengikuti Bumi
+        rec.pivot = makeOrbitPivot(body, rec);
+        parentRec.node.add(rec.pivot);
+        rec.pivot.add(rec.node);
       } else {
-        makeOrbitPivot(body, rec);
-        pivot_add(rec);
+        rec.pivot = makeOrbitPivot(body, rec);
+        group.add(rec.pivot);
+        rec.pivot.add(rec.node);
       }
     }
 
-    function pivot_add(rec) { rec.pivot.add(rec.node); }
     function byId(id) {
       for (var i = 0; i < BODIES.length; i++) if (BODIES[i].id === id) return i;
       return 0;
     }
 
-    // ---------- TICK ----------
+    // mode skala: Visual (kompresi) vs Orbit (1 AU = 60 unit, akurat relatif)
+    function setScaleMode(m) {
+      if (!MODES[m]) return;
+      mode = m;
+      for (var i = 0; i < bodies.length; i++) {
+        var b = bodies[i].body;
+        if (b.kind === 'planet') bodies[i].orbitTarget = (m === 'orbit' ? b.orbitAcc : b.orbit);
+      }
+    }
+
+    // tekstur prosedural: 1 per frame agar boot tak pernah membeku
+    function stepTextures() {
+      if (!textureQueue.length) return true;
+      var item = textureQueue.shift();
+      var tex = item.fn();
+      if (tex) {
+        var mat = item.rec.mesh.material;
+        mat.map = tex;
+        mat.emissiveIntensity = 0.14; // sisi gelap tetap terbaca, tak mati
+        mat.needsUpdate = true;
+      }
+      return textureQueue.length === 0;
+    }
+    function texturesRemaining() { return textureQueue.length; }
+
     var t0 = 0;
-    function tick(dt) {
-      t0 += dt;
+    function tick(dt, timeScale) {
+      t0 += dt * (timeScale === undefined ? 1 : Math.max(0, timeScale));
       for (var i = 0; i < bodies.length; i++) {
         var rec = bodies[i], b = rec.body;
-        rec.mesh.rotation.y += b.spin * dt * 4;
+        rec.mesh.rotation.y += b.spin * dt * 4 * (timeScale === undefined ? 1 : Math.max(0, timeScale));
         if (b.kind === 'star') {
           var pulse = 1 + Math.sin(t0 * 0.9) * 0.012;
           if (rec.corona[0]) rec.corona[0].scale.setScalar(b.radius * 3.1 * pulse);
           if (rec.corona[1]) rec.corona[1].scale.setScalar(b.radius * 5.6 * (2 - pulse));
           continue;
         }
-        // sudut orbit pada lokal pivot (pivot memegang inklinasi + yaw)
+        // lerp radius orbit saat ganti mode (damping eksponensial)
+        if (Math.abs(rec.orbitCur - rec.orbitTarget) > 0.01) {
+          rec.orbitCur = THREE.MathUtils.lerp(rec.orbitCur, rec.orbitTarget, 1 - Math.exp(-2.2 * dt));
+        }
         var a = rec.phase + (t0 / Math.max(1, visualPeriod(b.period))) * Math.PI * 2;
-        rec.node.position.set(Math.cos(a) * b.orbit, 0, Math.sin(a) * b.orbit);
+        rec.node.position.set(Math.cos(a) * rec.orbitCur, 0, Math.sin(a) * rec.orbitCur);
+        // skala garis orbit mengikuti (garis dibuat di radius visual awal)
+        if (rec.orbitLine && rec.orbitBase > 0) {
+          var s = rec.orbitCur / rec.orbitBase;
+          rec.orbitLine.scale.set(s, 1, s);
+        }
       }
-      // posisi dunia (setelah seluruh node di-update)
       for (var j = 0; j < bodies.length; j++) bodies[j].node.getWorldPosition(bodies[j].worldPos);
     }
 
@@ -447,7 +488,15 @@
       orbitLines: orbitLines,
       tick: tick,
       byId: byId,
-      focusDist: function (rec) { return rec.body.radius * 7 + 3; }
+      setScaleMode: setScaleMode,
+      mode: function () { return mode; },
+      stepTextures: stepTextures,
+      texturesRemaining: texturesRemaining,
+      modeInfo: function () {
+        var m = MODES[mode];
+        return { maxR: m.maxR, fog: m.fog, starScale: m.starScale, labelFar: m.labelFar };
+      },
+      focusDist: function (rec) { return rec.body.radius * 6.5 + 2.5; }
     };
     return api;
   }

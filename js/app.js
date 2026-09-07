@@ -1,7 +1,7 @@
-/* Universe Eye — app.js
- * Orkestrator utama: setup renderer, raycast klik planet, resize,
- * shortcut keyboard, boot sequence, fallback tanpa WebGL.
- * IIFE + "use strict". Window.UE (bootstrap sekali pakai).
+/* Universe Eye — app.js (v1.1)
+ * Orkestrator utama: renderer, raycast (drag-safe), double-click focus,
+ * resize, boot sequence, adaptive DPR, time control, scale mode, cinematic.
+ * IIFE + "use strict".
  */
 (function (global) {
   'use strict';
@@ -39,20 +39,21 @@
     renderer.setPixelRatio(DPR_CAP);
     renderer.setSize(global.innerWidth, global.innerHeight);
     renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.domElement.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     viewport.appendChild(renderer.domElement);
 
     var scene = new THREE.Scene();
     scene.background = new THREE.Color(0x05060d);
     scene.fog = new THREE.FogExp2(0x05060d, 0.00042);
 
-    var camera3d = new THREE.PerspectiveCamera(55, global.innerWidth / global.innerHeight, 0.1, 3000);
+    var camera3d = new THREE.PerspectiveCamera(55, global.innerWidth / global.innerHeight, 0.1, 6000);
 
     // ---------- cahaya ----------
-    scene.add(new THREE.AmbientLight(0x3a3f55, 0.55));
-    var sunLight = new THREE.PointLight(0xfff0d8, 2.4, 0, 2);
+    scene.add(new THREE.AmbientLight(0x4a5070, 0.5));   // dinaikkan agar sisi malam planet terbaca
+    var sunLight = new THREE.PointLight(0xfff0d8, 2.2, 0, 2);
     sunLight.position.set(0, 0, 0);
     scene.add(sunLight);
-    var rim = new THREE.DirectionalLight(0x88aaff, 0.18);
+    var rim = new THREE.DirectionalLight(0x88aaff, 0.14);
     rim.position.set(-1, 0.4, -0.8);
     scene.add(rim);
 
@@ -60,8 +61,15 @@
     var starfield = UEStarfield.build();
     scene.add(starfield.group);
 
-    // ---------- boot: tekstur Bumi (public domain) lalu bangun tata surya ----------
     var system, ui, cam;
+    var appRef = {
+      onScaleMode: function (m) {
+        var mi = system.modeInfo();
+        scene.fog.density = mi.fog;
+        starfield.group.scale.setScalar(mi.starScale);
+      }
+    };
+
     function bootProgress(p) {
       if (loadbar) loadbar.style.width = (p * 100).toFixed(0) + '%';
     }
@@ -70,7 +78,7 @@
       system = UESolarSystem.build(assets);
       scene.add(system.group);
       cam = new UECamera(camera3d, viewport);
-      ui = new UEUI(system, cam);
+      ui = new UEUI(system, cam, appRef);
       wireInput();
       bootProgress(1);
       hideIntro();
@@ -95,7 +103,7 @@
       }, 450);
     }
 
-    // ---------- input: klik planet (raycast, drag-safe) ----------
+    // ---------- input: raycast klik + double-click ----------
     var ray = new THREE.Raycaster();
     var ndc = new THREE.Vector2();
     var downX = 0, downY = 0, downT = 0;
@@ -108,8 +116,7 @@
       for (var i = 0; i < system.bodies.length; i++) meshes.push(system.bodies[i].mesh);
       var hits = ray.intersectObjects(meshes, false);
       if (!hits.length) return null;
-      var id = hits[0].object.userData.bodyId;
-      return system.bodies[system.byId(id)];
+      return system.bodies[system.byId(hits[0].object.userData.bodyId)];
     }
 
     function wireInput() {
@@ -126,7 +133,7 @@
         }
       });
       if (cam && cam.onUserInput === undefined) cam.onUserInput = function () { if (ui) ui.setTour(false); };
-      // keyboard navigation hidup di ui.js (UEUI._init)
+      // keyboard navigation hidup di ui.js
     }
 
     // ---------- resize ----------
@@ -137,9 +144,8 @@
     });
 
     // ---------- loop ----------
-    // FASE 6 (Performance Engineer): adaptive pixel ratio.
-    // Jika FPS turun <24 selama 2 detik, turunkan DPR satu level;
-    // jika >45 selama 6 detik, naikkan kembali (max DPR_CAP).
+    // Adaptive pixel ratio (Performance Engineer): turunkan DPR bila FPS <24,
+    // naikkan kembali bila >45 selama 6 detik.
     var DPR_LEVELS = [2, 1.5, 1.25, 1];
     var dprLevel = DPR_LEVELS.findIndex(function (v) { return v >= DPR_CAP; });
     if (dprLevel < 0) dprLevel = 0;
@@ -162,7 +168,10 @@
       var dt = Math.min(0.05, (now - last) / 1000);
       last = now;
 
-      system.tick(dt);
+      // proses 1 tekstur prosedural per frame (tak memblokir main thread)
+      if (system.texturesRemaining() > 0) system.stepTextures();
+
+      system.tick(dt, ui.timeScale);
       starfield.tick(dt);
       cam.update(dt);
       ui.tick(dt, camera3d.position);
@@ -171,7 +180,6 @@
       if (fpsT >= 0.5) {
         var fps = Math.round(fpsN / fpsT);
         ui.updateFPS(fps);
-        // adaptive quality
         if (fps < 24 && dprLevel < DPR_LEVELS.length - 1) {
           slowT += fpsT; fastT = 0;
           if (slowT > 2) { dprLevel++; slowT = 0; setDpr(); }
@@ -186,16 +194,17 @@
     }
 
     global.UE = {
-      version: '1.0.0',
+      version: '1.1.0',
       renderer: renderer,
       scene: scene,
       camera: camera3d,
-      system: null,
-      ui: null,
-      get ready() { return !!system; }
+      // getter: `system`/`ui` terisi saat startWorld() (asinkron) — prop statis
+      // akan membeku di undefined (ditemukan QA probe live-app)
+      get ready() { return !!system; },
+      get system() { return system; },
+      get ui() { return ui; },
+      get cam() { return cam; }
     };
-    global.UE.system = system;
-    global.UE.ui = ui;
   }
 
   if (document.readyState === 'loading') {
