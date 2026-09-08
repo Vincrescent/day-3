@@ -364,6 +364,7 @@ scene.add(sunLight);
 })();
 
 // ─── SUN GLOW SPRITE ───────────────────────────────────────
+let sunGlowSprite = null;
 (function createSunGlow() {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
@@ -381,6 +382,7 @@ scene.add(sunLight);
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(80, 80, 1);
   scene.add(sprite);
+  sunGlowSprite = sprite;
 
   // sun sphere
   const sunGeo = new THREE.SphereGeometry(18, 32, 32);
@@ -665,10 +667,13 @@ window.__SW.focusPlanet = function(id) {
 };
 
 // ═══════════════════════════════════════════════════════════
-// GOD'S EYE — EARTH RECON MODE
+// GOD'S EYE — EARTH RECON MODE (adapted from God's Eye View)
 // ═══════════════════════════════════════════════════════════
 let godsEyeActive = false;
-const earthGroup = new THREE.Group(); // holds enhanced Earth layers when active
+let autoOrbitActive = true;
+let autoOrbitPausedUntil = 0;
+let lastEarthCenter = new THREE.Vector3();
+const earthGroup = new THREE.Group();
 scene.add(earthGroup);
 
 // atmosphere glow (Fresnel rim)
@@ -705,7 +710,7 @@ const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
 cloudMesh.visible = false;
 earthGroup.add(cloudMesh);
 
-// night lights emissive layer (same size as earth sphere, additive blend)
+// night lights emissive layer (additive blend)
 const nightGeo = new THREE.SphereGeometry(VIS_R.earth * 1.001, 48, 48);
 const nightMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
 loadRealTextureSafe(NIGHT_FILE, (t) => { nightMat.map = t; nightMat.needsUpdate = true; });
@@ -713,32 +718,29 @@ const nightMesh = new THREE.Mesh(nightGeo, nightMat);
 nightMesh.visible = false;
 earthGroup.add(nightMesh);
 
-// satellite orbits (procedural: 6 LEO, 2 GEO arcs)
+// satellite orbits (6 LEO, 2 GEO arcs)
 const satGroup = new THREE.Group();
 satGroup.visible = false;
 earthGroup.add(satGroup);
 const satNames = ['ISS','HUBBLE','LANDSAT-9','GOES-16','GPS-IIF','STARLINK'];
 const satMeshes = [];
 for (let i = 0; i < 6; i++) {
-  const r = VIS_R.earth * (1.15 + i * 0.12);
-  const inc = (15 + i * 18) * DEG;
-  // orbit ring
+  const r = VIS_R.earth * (1.18 + i * 0.14);
+  const inc = (18 + i * 16) * DEG;
   const pts = [];
   for (let a = 0; a <= 360; a += 3) {
     const rad = a * DEG;
     pts.push(new THREE.Vector3(r * Math.cos(rad), r * Math.sin(rad) * Math.sin(inc), r * Math.sin(rad) * Math.cos(inc)));
   }
   const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
-  const lineMat = new THREE.LineBasicMaterial({ color: i < 3 ? 0x38bdf8 : 0x22c55e, transparent: true, opacity: 0.35 });
+  const lineMat = new THREE.LineBasicMaterial({ color: i < 3 ? 0x38bdf8 : 0x22c55e, transparent: true, opacity: 0.4 });
   satGroup.add(new THREE.LineLoop(lineGeo, lineMat));
-  // satellite dot
-  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 8), new THREE.MeshBasicMaterial({ color: i < 3 ? 0x38bdf8 : 0x22c55e }));
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), new THREE.MeshBasicMaterial({ color: i < 3 ? 0x38bdf8 : 0x22c55e }));
   dot.userData = { r, inc, speed: (0.0004 + i * 0.00012), name: satNames[i] };
   satGroup.add(dot);
   satMeshes.push(dot);
-  // sat name
-  const sp = makeNameSprite(satNames[i], i < 3 ? '#38bdf8' : '#22c55e', 4);
-  sp.position.y = 1.2;
+  const sp = makeNameSprite(satNames[i], i < 3 ? '#38bdf8' : '#22c55e', 3.8);
+  sp.position.y = 1.1;
   dot.add(sp);
 }
 
@@ -747,46 +749,105 @@ const geHud = document.createElement('div');
 geHud.id = 'gods-eye-hud';
 geHud.innerHTML = `
   <div class="ge-header">
-    <div class="ge-title">🛰 GOD'S EYE — EARTH COMMAND</div>
-    <button class="ge-btn" id="ge-close">✕ RETURN TO SOLAR ORBIT</button>
+    <div class="ge-title-wrap">
+      <span class="ge-live-dot"></span>
+      <span class="ge-title">GOD'S EYE: EARTH COMMAND</span>
+      <span class="ge-badge">ORBITAL RECON</span>
+    </div>
+    <div class="ge-top-actions">
+      <span class="ge-hint">Q/E putar · W/S zoom · Drag bebas · Space auto-orbit</span>
+      <button class="ge-btn" id="ge-close">✕ RETURN TO SOLAR ORBIT</button>
+    </div>
   </div>
   <div class="ge-panels">
     <div class="ge-telemetry">
       <div class="ge-t-row"><span>ALTITUDE</span><b id="ge-alt">—</b></div>
       <div class="ge-t-row"><span>ORBITAL VEL</span><b>29.78 km/s</b></div>
-      <div class="ge-t-row"><span>ROTATION</span><b id="ge-rot">—</b></div>
+      <div class="ge-t-row"><span>HEADING</span><b id="ge-rot">—</b></div>
       <div class="ge-t-row"><span>SATELLITES</span><b>6 tracked</b></div>
-      <div class="ge-t-row"><span>CLOUDS</span><b>ON</b></div>
-      <div class="ge-t-row"><span>NIGHT LIGHTS</span><b>ON</b></div>
     </div>
     <div class="ge-toggles">
       <button class="ge-tog active" data-layer="clouds">☁ CLOUDS</button>
       <button class="ge-tog active" data-layer="night">🌃 NIGHT</button>
       <button class="ge-tog active" data-layer="sats">🛰 SATS</button>
       <button class="ge-tog active" data-layer="atmos">🌐 ATMOS</button>
+      <button class="ge-tog active" id="ge-tog-orbit" data-layer="orbit">⟳ AUTO-ORBIT</button>
     </div>
   </div>
 `;
 geHud.style.cssText = 'display:none;position:absolute;inset:0;pointer-events:none;z-index:60;padding:12px';
 container.appendChild(geHud);
 
-// HUD styles (injected once)
+// HUD styles (clean separation, prevents any overlapping)
 const geStyle = document.createElement('style');
 geStyle.textContent = `
-#gods-eye-hud .ge-header{display:flex;justify-content:space-between;align-items:center;pointer-events:auto}
-.ge-title{font:bold 14px/1 'Segoe UI',sans-serif;color:#38bdf8;text-shadow:0 0 20px rgba(56,189,248,.5);letter-spacing:.12em}
-.ge-btn{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);color:#fca5a5;font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer;pointer-events:auto;transition:.15s}
-.ge-btn:hover{background:rgba(239,68,68,.3)}
-.ge-panels{position:absolute;bottom:40px;left:12px;display:flex;gap:8px;flex-direction:column;pointer-events:auto}
-.ge-telemetry{background:rgba(14,19,32,.88);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:11px;min-width:180px;backdrop-filter:blur(6px)}
+#vp.gods-eye-active .vp-top { display: none !important; }
+#gods-eye-hud .ge-header{display:flex;justify-content:space-between;align-items:center;pointer-events:auto;background:linear-gradient(180deg,rgba(10,14,28,.9),transparent);padding:4px 6px;border-radius:8px}
+.ge-title-wrap{display:flex;align-items:center;gap:8px}
+.ge-live-dot{width:8px;height:8px;border-radius:50%;background:#38bdf8;box-shadow:0 0 10px #38bdf8;animation:pulse 1.5s infinite}
+.ge-title{font:bold 13px/1 'Segoe UI',system-ui,sans-serif;color:#38bdf8;letter-spacing:.1em;text-shadow:0 0 14px rgba(56,189,248,.6)}
+.ge-badge{font-size:9px;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.4);color:#7dd3fc;padding:2px 6px;border-radius:4px;font-weight:600}
+.ge-top-actions{display:flex;align-items:center;gap:12px}
+.ge-hint{font-size:10px;color:var(--muted);white-space:nowrap}
+.ge-btn{background:rgba(239,68,68,.18);border:1px solid rgba(239,68,68,.5);color:#fca5a5;font-size:11px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;pointer-events:auto;transition:.15s}
+.ge-btn:hover{background:rgba(239,68,68,.35);color:#fff}
+.ge-panels{position:absolute;bottom:35px;left:12px;display:flex;gap:8px;flex-direction:column;pointer-events:auto}
+.ge-telemetry{background:rgba(14,19,32,.9);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:11px;min-width:190px;backdrop-filter:blur(8px)}
 .ge-t-row{display:flex;justify-content:space-between;padding:3px 0;color:var(--muted)}
 .ge-t-row b{color:var(--text);font-variant-numeric:tabular-nums}
 .ge-toggles{display:flex;gap:4px;flex-wrap:wrap}
-.ge-tog{font-size:10px;padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:rgba(14,19,32,.85);color:var(--muted);cursor:pointer;transition:.15s}
-.ge-tog.active{border-color:var(--accent);color:var(--accent);background:rgba(56,189,248,.1)}
-@keyframes ge-scan{0%{background-position:0 0}100%{background-position:0 100%}}
+.ge-tog{font-size:10px;padding:5px 9px;border-radius:5px;border:1px solid var(--border);background:rgba(14,19,32,.85);color:var(--muted);cursor:pointer;transition:.15s}
+.ge-tog.active{border-color:var(--accent);color:var(--accent);background:rgba(56,189,248,.15)}
 `;
 document.head.appendChild(geStyle);
+
+// CANCELFLIGHT REFLEX (God's Eye View cameraVerbs.js lines 981-986):
+// ANY manual input (pointerdown, wheel, touchstart) immediately reclaims control!
+['pointerdown', 'wheel', 'touchstart'].forEach(evt => {
+  canvas.addEventListener(evt, () => {
+    if (animating) {
+      animating = false;
+      controls.enabled = true;
+    }
+    autoOrbitPausedUntil = Date.now() + 4000; // pause auto-orbit on manual gesture
+  }, { passive: true });
+});
+
+// KEYBOARD CAMERA VERBS (God's Eye View):
+window.addEventListener('keydown', (e) => {
+  if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  if (!godsEyeActive) return;
+  const ep = planetMeshes.earth ? planetMeshes.earth.position : new THREE.Vector3();
+  const offset = camera.position.clone().sub(ep);
+  if (e.key === 'q' || e.key === 'Q') {
+    offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.08);
+    camera.position.copy(ep).add(offset);
+    controls.target.copy(ep);
+    autoOrbitPausedUntil = Date.now() + 3500;
+  } else if (e.key === 'e' || e.key === 'E') {
+    offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.08);
+    camera.position.copy(ep).add(offset);
+    controls.target.copy(ep);
+    autoOrbitPausedUntil = Date.now() + 3500;
+  } else if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+    const len = offset.length();
+    if (len > controls.minDistance + 0.8) offset.setLength(len * 0.92);
+    camera.position.copy(ep).add(offset);
+    controls.target.copy(ep);
+    autoOrbitPausedUntil = Date.now() + 3500;
+  } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+    const len = offset.length();
+    if (len < controls.maxDistance - 2) offset.setLength(len * 1.08);
+    camera.position.copy(ep).add(offset);
+    controls.target.copy(ep);
+    autoOrbitPausedUntil = Date.now() + 3500;
+  } else if (e.code === 'Space') {
+    e.preventDefault();
+    autoOrbitActive = !autoOrbitActive;
+    const btn = document.getElementById('ge-tog-orbit');
+    if (btn) btn.classList.toggle('active', autoOrbitActive);
+  }
+});
 
 // layer toggles
 geHud.querySelectorAll('.ge-tog').forEach(btn => {
@@ -798,6 +859,7 @@ geHud.querySelectorAll('.ge-tog').forEach(btn => {
       case 'night':  nightMat.opacity = on ? 0.7 : 0; break;
       case 'sats':   satGroup.visible = on && godsEyeActive; break;
       case 'atmos':  atmosMesh.visible = on && godsEyeActive; break;
+      case 'orbit':  autoOrbitActive = on; break;
     }
   });
 });
@@ -805,31 +867,54 @@ geHud.querySelectorAll('.ge-tog').forEach(btn => {
 // enter / exit God's Eye mode
 function enterGodsEye() {
   godsEyeActive = true;
+  container.classList.add('gods-eye-active');
   geHud.style.display = 'block';
   atmosMesh.visible = true;
   cloudMesh.visible = true;
   nightMesh.visible = true;
   nightMat.opacity = 0.7;
   satGroup.visible = true;
-  // camera close to earth
-  const p = toDisplay(BODIES[3], Date.now());
-  targetPos = new THREE.Vector3(p.x + 14, p.y + 8, p.z + 14);
-  targetLook = new THREE.Vector3(p.x, p.y, p.z);
+  if (sunGlowSprite) sunGlowSprite.visible = false; // eliminate sun glare over earth
+
+  // set Earth-scale camera limits
+  controls.minDistance = 7.2;
+  controls.maxDistance = 140;
+
+  // camera framing: view Earth from side/terminator so day+night are both visible
+  const disp = toDisplay(BODIES[3], Date.now());
+  const p = new THREE.Vector3(disp.x, disp.y, disp.z);
+  lastEarthCenter.copy(p);
+  const dir = p.clone().normalize();
+  const tangent = new THREE.Vector3(-dir.z, 0.4, dir.x).normalize();
+  const camOffset = dir.clone().multiplyScalar(-10).add(tangent.clone().multiplyScalar(12));
+  camOffset.setLength(18);
+
+  targetPos = p.clone().add(camOffset);
+  targetLook = p.clone();
   animating = true;
   controls.enabled = false;
+
   // highlight earth pill
   document.querySelectorAll('.mode-pill').forEach(b => b.classList.remove('active'));
-  document.querySelector('[data-m="earth"]').classList.add('active');
+  const ep = document.querySelector('[data-m="earth"]');
+  if (ep) ep.classList.add('active');
 }
 
 function exitGodsEye() {
   godsEyeActive = false;
+  container.classList.remove('gods-eye-active');
   geHud.style.display = 'none';
   atmosMesh.visible = false;
   cloudMesh.visible = false;
   nightMesh.visible = false;
   nightMat.opacity = 0;
   satGroup.visible = false;
+  if (sunGlowSprite) sunGlowSprite.visible = true;
+
+  // restore solar-scale camera limits
+  controls.minDistance = 20;
+  controls.maxDistance = 4000;
+
   setMode('overview');
 }
 
@@ -846,7 +931,7 @@ window.__SW.setMode = function(mode) {
 const _origFocus = window.__SW.focusPlanet;
 window.__SW.focusPlanet = function(id) {
   if (id === 'earth') { enterGodsEye(); return; }
-  if (godsEyeActive) { godsEyeActive = false; geHud.style.display = 'none'; atmosMesh.visible = false; cloudMesh.visible = false; nightMesh.visible = false; satGroup.visible = false; }
+  if (godsEyeActive) { exitGodsEye(); }
   _origFocus(id);
 };
 
@@ -959,14 +1044,30 @@ function animate(time) {
         dot.position.set(r * Math.cos(ang), r * Math.sin(ang) * Math.sin(inc), r * Math.sin(ang) * Math.cos(inc));
       }
     }
-    // HUD telemetry
+    // HUD telemetry & camera tracking
     if (godsEyeActive) {
+      // Track Earth center without breaking user's relative orbit angle
+      if (!animating) {
+        const dCenter = ep.clone().sub(lastEarthCenter);
+        camera.position.add(dCenter);
+        controls.target.copy(ep);
+      }
+      lastEarthCenter.copy(ep);
+
+      // Cinematic auto-orbit (adapted from God's Eye View cameraVerbs.js)
+      if (!animating && autoOrbitActive && Date.now() > autoOrbitPausedUntil) {
+        const offset = camera.position.clone().sub(ep);
+        offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), dt * 0.05); // smooth ~2.8 deg/s
+        camera.position.copy(ep).add(offset);
+        controls.target.copy(ep);
+      }
+
       const dist = camera.position.distanceTo(ep);
-      const altKm = ((dist - VIS_R.earth) / VIS_R.earth * 6371).toFixed(0);
+      const altKm = Math.max(180, Math.round(((dist - VIS_R.earth) / VIS_R.earth) * 6371));
       const geAlt = document.getElementById('ge-alt');
       const geRot = document.getElementById('ge-rot');
-      if (geAlt) geAlt.textContent = altKm + ' km';
-      if (geRot) geRot.textContent = (planetMeshes.earth.rotation.y * 180 / Math.PI % 360).toFixed(1) + '°';
+      if (geAlt) geAlt.textContent = altKm.toLocaleString() + ' km';
+      if (geRot) geRot.textContent = (Math.round(planetMeshes.earth.rotation.y * 180 / Math.PI) % 360) + '°';
     }
   }
   // moon orbits Earth (27.3 d period, scaled to look right)
@@ -976,12 +1077,12 @@ function animate(time) {
     moon.position.set(ep.x + Math.cos(ma) * 10, ep.y + Math.sin(ma * 0.55) * 4, ep.z + Math.sin(ma) * 10);
   }
 
-  // camera animation
+  // camera animation (smooth ease to target with safety timeout)
   if (animating && targetPos && targetLook) {
-    const speed = Math.min(1, dt * 1.8);
+    const speed = Math.min(1, dt * 2.2);
     camera.position.lerp(targetPos, speed);
     controls.target.lerp(targetLook, speed);
-    if (camera.position.distanceTo(targetPos) < 1) {
+    if (camera.position.distanceTo(targetPos) < 1.5) {
       camera.position.copy(targetPos);
       controls.target.copy(targetLook);
       animating = false;
@@ -1001,7 +1102,15 @@ function animate(time) {
 
 // deep link: ?planet=earth focuses that planet on load
 const _urlP = new URLSearchParams(location.search).get('planet');
-if (_urlP && planetMeshes[_urlP]) window.__SW.focusPlanet(_urlP);
+if (_urlP && planetMeshes[_urlP]) {
+  window.__SW.focusPlanet(_urlP);
+  if (targetPos && targetLook) {
+    camera.position.copy(targetPos);
+    controls.target.copy(targetLook);
+    animating = false;
+    controls.enabled = true;
+  }
+}
 
 animate(0);
 </script>
