@@ -554,6 +554,9 @@ for (const b of BODIES) {
   }
   const mesh = new THREE.Mesh(geo, mat);
   mesh.userData = b;
+  // Initialize positions immediately so focusPlanet / deep-link can snap without waiting for animate()
+  const initPos = toDisplay(b, Date.now());
+  mesh.position.set(initPos.x, initPos.y, initPos.z);
   scene.add(mesh);
   planetMeshes[b.id] = mesh;
 
@@ -594,12 +597,25 @@ for (const b of BODIES) {
 }
 
 // ─── MOON (27.3 d around Earth display orbit) ──────────────
-const moon = new THREE.Mesh(
-  new THREE.SphereGeometry(1.6, 16, 16),
-  new THREE.MeshStandardMaterial({ color: 0xbdbdbd, roughness: 0.9 })
-);
+const moonGeo = new THREE.SphereGeometry(1.6, 32, 32);
+const moonBaseTex = makePlanetTexture('moon', '#bfbfbf');
+const moonMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  roughness: 0.9,
+  emissive: 0xffffff,
+  emissiveMap: moonBaseTex,
+  emissiveIntensity: 0.18,
+});
+const moon = new THREE.Mesh(moonGeo, moonMat);
+moon.userData = { id: 'moon', name: 'Bulan (Moon)' };
+{
+  const initT = Date.now();
+  const initEp = toDisplay(BODIES[3], initT);
+  const initMa = ((initT - JD2000_UNIX) / MS_PER_DAY / 27.3) * Math.PI * 2;
+  moon.position.set(initEp.x + Math.cos(initMa) * 10, initEp.y + Math.sin(initMa * 0.55) * 4, initEp.z + Math.sin(initMa) * 10);
+}
 scene.add(moon);
-if (MOON_FILE) loadRealTexture(MOON_FILE, (t) => { moon.material.map = t; moon.material.needsUpdate = true; });
+if (MOON_FILE) loadRealTexture(MOON_FILE, (t) => { moon.material.map = t; moon.material.emissiveMap = t; moon.material.needsUpdate = true; });
 const moonLabelSprite = makeNameSprite('Bulan', '#c8c8c8', 6);
 moonLabelSprite.position.y = 4.5;
 moon.add(moonLabelSprite);
@@ -630,10 +646,13 @@ window.__SW = { syncAsteroids, BODIES, heliocentric, planetMeshes, orbitLines };
 
 // ─── CAMERA MODES ───────────────────────────────────────────
 let targetPos = null, targetLook = null, animating = false;
+let focusedBody = null;
+let lastFocusPos = null;
 
 function easeInOutCubic(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2; }
 
 function setMode(mode) {
+  focusedBody = null;
   const t = Date.now();
   if (mode === 'overview') {
     targetPos = new THREE.Vector3(0, 190, 260);
@@ -930,25 +949,64 @@ window.__SW.setMode = function(mode) {
 // Also hook focusPlanet — if clicking Earth sphere, enter God's Eye
 const _origFocus = window.__SW.focusPlanet;
 window.__SW.focusPlanet = function(id) {
-  if (id === 'earth') { enterGodsEye(); return; }
+  if (id === 'earth') { focusedBody = 'earth'; enterGodsEye(); return; }
+  if (id === 'moon') {
+    if (godsEyeActive) exitGodsEye();
+    focusedBody = 'moon';
+    const initT = Date.now();
+    const ep = planetMeshes.earth ? planetMeshes.earth.position : toDisplay(BODIES[3], initT);
+    const ma = ((initT - JD2000_UNIX) / MS_PER_DAY / 27.3) * Math.PI * 2;
+    moon.position.set(ep.x + Math.cos(ma) * 10, ep.y + Math.sin(ma * 0.55) * 4, ep.z + Math.sin(ma) * 10);
+    const mp = moon.position.clone();
+    // Position camera from sunward/side perspective to illuminate craters
+    const dir = mp.clone().normalize();
+    targetPos = mp.clone().sub(dir.clone().multiplyScalar(5)).add(new THREE.Vector3(0, 1.8, 0));
+    targetLook = mp.clone();
+    animating = true;
+    controls.enabled = false;
+    controls.minDistance = 2.2;
+    controls.maxDistance = 60;
+    return;
+  }
   if (godsEyeActive) { exitGodsEye(); }
-  _origFocus(id);
+  focusedBody = id;
+  const b = BODIES.find(x => x.id === id);
+  const mesh = planetMeshes[id];
+  if (!b || !mesh) return;
+  const p = toDisplay(b, Date.now());
+  const rad = Math.max(16, VIS_R[id] * 2.8);
+  const dir = new THREE.Vector3(p.x, 0, p.z).normalize();
+  // Camera on sunlit side so the planet's texture is brightly lit, not dark
+  targetPos = new THREE.Vector3(p.x, p.y, p.z).sub(dir.clone().multiplyScalar(rad)).add(new THREE.Vector3(0, rad * 0.35, 0));
+  targetLook = new THREE.Vector3(p.x, p.y, p.z);
+  animating = true;
+  controls.enabled = false;
+  controls.minDistance = VIS_R[id] * 1.3;
+  controls.maxDistance = 800;
 };
 
 // ─── RAYCASTER for hover/click ─────────────────────────────
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
+function getClickable() {
+  return [...Object.values(planetMeshes), moon];
+}
+
 canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();
   mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
-  const hits = raycaster.intersectObjects(Object.values(planetMeshes));
+  const hits = raycaster.intersectObjects(getClickable());
   if (hits.length > 0) {
     const b = hits[0].object.userData;
-    const p = heliocentric(b, Date.now());
-    tooltip.innerHTML = `<b>${b.name}</b><br>📍 ${p.rAU.toFixed(3)} AU<br>⚡ ${p.vKms.toFixed(1)} km/s`;
+    if (b.id === 'moon') {
+      tooltip.innerHTML = `<b>Bulan (Moon)</b><br>📍 Satelit Alami Bumi<br>⚡ Orbit: 1.02 km/s`;
+    } else {
+      const p = heliocentric(b, Date.now());
+      tooltip.innerHTML = `<b>${b.name}</b><br>📍 ${p.rAU.toFixed(3)} AU<br>⚡ ${p.vKms.toFixed(1)} km/s`;
+    }
     tooltip.style.left = (e.clientX - container.getBoundingClientRect().left + 14) + 'px';
     tooltip.style.top = (e.clientY - container.getBoundingClientRect().top - 10) + 'px';
     tooltip.classList.add('show');
@@ -962,7 +1020,7 @@ canvas.addEventListener('mousemove', (e) => {
 canvas.addEventListener('click', (e) => {
   if (animating) return;
   raycaster.setFromCamera(mouse, camera);
-  const hits = raycaster.intersectObjects(Object.values(planetMeshes));
+  const hits = raycaster.intersectObjects(getClickable());
   if (hits.length > 0) {
     window.__SW.focusPlanet(hits[0].object.userData.id);
   }
@@ -1074,7 +1132,10 @@ function animate(time) {
   {
     const ep = planetMeshes.earth ? planetMeshes.earth.position : new THREE.Vector3();
     const ma = ((t - JD2000_UNIX) / MS_PER_DAY / 27.3) * Math.PI * 2;
-    moon.position.set(ep.x + Math.cos(ma) * 10, ep.y + Math.sin(ma * 0.55) * 4, ep.z + Math.sin(ma) * 10);
+    const mp = new THREE.Vector3(ep.x + Math.cos(ma) * 10, ep.y + Math.sin(ma * 0.55) * 4, ep.z + Math.sin(ma) * 10);
+    moon.position.copy(mp);
+    // tidal lock: always face Earth with the same side
+    moon.rotation.y = -ma + Math.PI;
   }
 
   // camera animation (smooth ease to target with safety timeout)
@@ -1088,6 +1149,22 @@ function animate(time) {
       animating = false;
       controls.enabled = true;
     }
+  } else if (!animating && focusedBody) {
+    // Keep camera locked on focused body without losing user's relative orbit angle
+    let currPos = null;
+    if (focusedBody === 'moon') currPos = moon.position;
+    else if (planetMeshes[focusedBody]) currPos = planetMeshes[focusedBody].position;
+    if (currPos && lastFocusPos) {
+      const d = currPos.clone().sub(lastFocusPos);
+      camera.position.add(d);
+      controls.target.copy(currPos);
+    }
+    if (currPos) {
+      if (!lastFocusPos) lastFocusPos = new THREE.Vector3();
+      lastFocusPos.copy(currPos);
+    }
+  } else {
+    lastFocusPos = null;
   }
 
   controls.update();
@@ -1100,9 +1177,9 @@ function animate(time) {
     `${BODIES.filter(b=>b.period).length} PLANETS · DPR ${renderer.domElement.width / renderer.domElement.clientWidth}`;
 }
 
-// deep link: ?planet=earth focuses that planet on load
+// deep link: ?planet=earth focuses that planet on load (moon supported too)
 const _urlP = new URLSearchParams(location.search).get('planet');
-if (_urlP && planetMeshes[_urlP]) {
+if (_urlP && (planetMeshes[_urlP] || _urlP === 'moon')) {
   window.__SW.focusPlanet(_urlP);
   if (targetPos && targetLook) {
     camera.position.copy(targetPos);
