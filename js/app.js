@@ -140,7 +140,15 @@
           if (rec) ui.focusRec(rec);
         }
       });
-      if (cam && cam.onUserInput === undefined) cam.onUserInput = function () { if (ui) ui.setTour(false); };
+      if (cam && cam.onUserInput === undefined) cam.onUserInput = function () {
+        if (!ui) return;
+        // FITUR G: cancelFlight reflex — SEMANTIK input manual (drag/wheel)
+        // meng-interrupt verb aktif (auto-orbit / dolly), instan, tanpa ease.
+        // (dari cameraVerbs.js: "ANY manual camera input reclaims control")
+        if (ui.slot.active) ui.slot.interrupt('manual-input');
+        ui._dollyRunning = false;
+        if (ui.tourOn) ui.setTour(false);
+      };
       // keyboard navigation hidup di ui.js
     }
 

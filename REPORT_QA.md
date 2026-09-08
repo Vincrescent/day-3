@@ -115,6 +115,30 @@ seumur hidup, sementara `ready` (getter) sudah `true`.
     live probe browser nyata `test/qa/split-flap-live.html` — ALL PASS:
     mid-cascade host aktif + 8 cells + textContent selalu benar +
     cells dicabut setelah settle + `set(sama)=no-op`.
+- **FITUR G — Camera Verbs (adaptasi MIT dari `cameraVerbs.js`):**
+  - Modul baru `js/camera-verbs.js`: **motion slot tunggal** (satu gerak pada
+    satu waktu), verb `orbit`/`tilt`/`dolly` (mode `once` self-stop /
+    `continuous`), speed words `slow`/`normal`/`fast`, dan **profil kecepatan
+    trapezoid** (smoothstep naik → cruise → smoothstep turun, integral
+    closed-form — posisi presisi tanpa drift, speed C1 di sambungan).
+  - **Auto-orbit** (tombol `⟳ Orbit` di dock): kamera berputar otomatis
+    mengelilingi target; **cancelFlight reflex** — drag/scroll/pick meng-interrupt
+    instan (pola asli: "ANY manual camera input reclaims control").
+  - **Dolly sinematik** di auto-tour: tiap transisi planet kini dolly dengan
+    ease-in/ease-out (bukan lompatan keras), segmen berjalan terus sampai
+    di-interrupt manual.
+  - **Speed words** keyboard: `Q` slow / `W` normal / `E` fast + indikator
+    S/N/F di dock. `Esc` meng-interrupt semua verb.
+  - Yang TIDAK dipindah (Cesium-bound, 0 byte): route dolly street-following,
+    bank turn, terrain floor, corridor warming. Konstanta °/s di-retune untuk
+    skala tata surya (bukan salinan angka referensi).
+  - Atribusi MIT: header `js/camera-verbs.js` + `THIRD_PARTY_NOTICES.md` §4
+    + `ASSET_LICENSES.md` §2c.
+  - **Verifikasi:** e2e 93/93 (math trapezoid C1/endpoint/monotonik, slot
+    once/continuous/interrupt/speed-words/replace, wiring UI ui.tick);
+    live probe app asli (WebGL, 10 bodies): **11/11 PASS** — auto-orbit
+    menggerakkan kamera asli 12° dalam 2 s, cancelFlight via wheel &
+    pointerdown, speed words, dolly self-complete → segmen berikutnya (dollyIdx=4).
 
 ---
 
@@ -124,11 +148,11 @@ seumur hidup, sementara `ready` (getter) sudah `true`.
 | Imersi prioritas | ✅ | Cinematic mode, intro drop, letterbox, tour, emissive planet |
 | Kamera halus | ✅ | Damping eksponensial framerate-independent, handoff focus, `kamera damping konvergen` |
 | Performa tinggi | ✅ | Adaptive DPR, tekstur stagger (tak blocking), `GL error=0`, e2e tanpa hang |
-| Aset legal | ✅ | Bumi = NASA public domain; sisanya 100% prosedural orisinal; adaptasi MIT (corona.js, split-flap.js) ber-atribusi penuh |
-| Kode modular | ✅ | 8 modul tanggung-jawab-tunggal, IIFE + "use strict", API `window.*` |
+| Aset legal | ✅ | Bumi = NASA public domain; sisanya 100% prosedural orisinal; adaptasi MIT (corona.js, split-flap.js, camera-verbs.js) ber-atribusi penuh |
+| Kode modular | ✅ | 9 modul tanggung-jawab-tunggal, IIFE + "use strict", API `window.*` |
 
 ### HASIL TEST
-- **e2e (jsdom + stub THREE):** 67/67 checks PASS
+- **e2e (jsdom + stub THREE):** 93/93 checks PASS
 - **Live-app (headless Chrome, WebGL2 nyata):** LIVE-APP ALL PASS
   (UE siap, 10 bodies, moon-orbit-earth dist=6.00, render loop hidup,
   frame render terjadi, semua planet punya geometry, corona canvas mounted)
@@ -150,6 +174,8 @@ corona.js       → overlay screen-space: glow corona Matahari + halo Bulan
 ui.js           → panel info (split-flap header), chips, labels, dock, timebar,
                   toggle, keyboard, tour, escapeHTML (anti-XSS)
 split-flap.js   → flip-mekanik per-karakter (adaptasi MIT God's Eye View)
+camera-verbs.js → motion slot + cancelFlight + speed words + dolly trapezoid
+                  (adaptasi MIT dari God's Eye View cameraVerbs.js)
 app.js          → orkestrator: renderer, raycast drag-safe, double-click,
                   resize, boot, adaptive DPR, loop, handle window.UE (getter),
                   mount + tick corona overlay

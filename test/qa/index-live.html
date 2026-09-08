@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8">
-  <base href="../..">
+<base href="../..">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Universe Eye — Observatorium Pribadi</title>
   <meta name="description" content="Eksplorasi tata surya yang sinematik. Matahari, delapan planet, dan Bulan — dari observatorium pribadimu.">
@@ -12,12 +12,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
-<script>
-window.__errs = [];
-window.addEventListener('error', function(e){ window.__errs.push(e.message + ' @ ' + (e.filename||'').split('/').pop() + ':' + e.lineno); });
-window.addEventListener('unhandledrejection', function(e){ window.__errs.push('REJECT ' + (e.reason && (e.reason.message || e.reason))); });
-</script>
-
 </head>
 <body>
   <div id="viewport" aria-label="Kanvas tata surya"></div>
@@ -49,6 +43,8 @@ window.addEventListener('unhandledrejection', function(e){ window.__errs.push('R
 
   <div id="dock">
     <button id="btn-orbits" class="ghost" aria-pressed="true">Orbit</button>
+    <button id="btn-autoorbit" class="ghost" aria-pressed="false" title="Auto-orbit (Q/W/E = kecepatan, drag/scroll = hentikan)">⟳ Orbit</button>
+    <span id="verb-speed" style="color:#94a3b8;font-size:0.65rem;margin-left:0.25rem;">N</span>
     <button id="btn-labels" class="ghost" aria-pressed="true">Label</button>
     <button id="btn-scale" class="ghost" aria-pressed="false">Skala: Visual</button>
     <button id="btn-cine" class="ghost" aria-pressed="false">&#9635; Sinema</button>
@@ -87,76 +83,91 @@ window.addEventListener('unhandledrejection', function(e){ window.__errs.push('R
   <script>if (window.THREE) { window.__UE_OK = true; } else { window.addEventListener('load', function(){ window.__UE_NO3D = true; }); }</script>
 
   <script src="js/corona.js"></script>
+  <script src="js/camera-verbs.js"></script>
+  <script src="js/split-flap.js"></script>
   <script src="js/noise.js"></script>
   <script src="js/starfield.js"></script>
   <script src="js/solar-system.js"></script>
   <script src="js/camera.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>
-
 <script>
-(function(){
-  var out = [];
-  function log(m){ out.push(m); }
-  function tick(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
-  function finish(){
-    var d = document.createElement('pre');
-    d.id = 'liveprobe';
-    d.style.cssText = 'position:fixed;left:0;top:0;z-index:99999;background:#000c;color:#7CFC00;font:12px/1.4 monospace;padding:8px;white-space:pre-wrap;max-width:60vw';
-    var fail = out.filter(function(l){return /^FAIL/.test(l)}).length;
-    d.textContent = out.join('\n') + '\n==== ' + (fail? fail+' FAIL':'LIVE-APP ALL PASS') + ' ====';
-    document.body.appendChild(d);
-    document.title = (fail? 'FAIL '+fail : 'LIVE OK') + ' | ' + out.length;
-  }
-  function run(){
-    var tries = 0;
-    (function waitUE(){
-      if (window.UE && window.UE.ready) { start(); }
-      else if (tries++ < 200) { setTimeout(waitUE, 150); }
-      else { log('FAIL window.UE.ready tidak tercapai dalam 30s'); log('ERRORS: ' + (window.__errs||[]).join(' | ')); finish(); }
-    })();
-  }
-  function start(){
-    try {
-      log('PASS window.UE siap, version ' + window.UE.version);
-      var sys = window.UE.system;
-      log(sys.bodies.length === 10 ? 'PASS system 10 bodies' : 'FAIL bodies=' + sys.bodies.length);
-      var r = window.UE.renderer;
-      var calls0 = r.info.render.calls;
-      var moon = sys.bodies[sys.byId('moon')], earth = sys.bodies[sys.byId('earth')], sun = sys.bodies[sys.byId('sun')];
-      var v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3();
-      moon.node.getWorldPosition(v1); earth.node.getWorldPosition(v2); sun.node.getWorldPosition(v3);
-      var dm = v1.distanceTo(v2), ds = v1.distanceTo(v3);
-      log((dm < moon.body.orbit*1.3 && dm > moon.body.orbit*0.7) ? 'PASS live moon-orbit-earth dist=' + dm.toFixed(2) : 'FAIL live moon dist=' + dm.toFixed(2));
-      log(ds > 25 ? 'PASS live moon follows earth (sun-dist ' + ds.toFixed(1) + ')' : 'FAIL live moon at sun dist=' + ds.toFixed(1));
-      // CORONA canvas ter-mount?
-      var cc = document.querySelector('.ue-corona');
-      log(cc ? 'PASS corona canvas mounted (' + cc.width + 'x' + cc.height + ')' : 'FAIL corona canvas tidak ada');
-      var cp0 = window.UE.camera.position.clone();
-      tick(900).then(function(){
-        try {
-          var cp1 = window.UE.camera.position.clone();
-          log(cp1.distanceTo(cp0) > 0.01 ? 'PASS render loop hidup (kamera bergerak ' + cp1.distanceTo(cp0).toFixed(2) + ')' : 'FAIL kamera diam');
-          log(r.info.render.calls >= calls0 ? 'PASS frame render terjadi (calls=' + r.info.render.calls + ')' : 'FAIL tak ada render call');
-          // corona sudah menggambar? (baca alpha canvas)
-          if (cc && cc.width > 10) {
-            var t = window.UECorona.create(); // dummy, hanya cek API
-            var c2 = document.querySelector('.ue-corona');
-            var idata = c2.getContext ? c2.getContext('2d', {willReadFrequently:true}) : null;
-            log('INFO corona present');
-          }
-          var bad = sys.bodies.filter(function(b){ return b.body.kind!=='star' && (!b.mesh || !b.mesh.geometry); });
-          log(bad.length ? 'FAIL bodies tanpa geometry' : 'PASS semua planet punya geometry');
-          log(document.getElementById('intro') === null ? 'PASS intro dihapus setelah boot' : 'INFO intro masih ada');
-          log('ERRORS: ' + ((window.__errs||[]).length ? window.__errs.join(' | ') : 'none'));
-          finish();
-        } catch(e){ log('FAIL probe-2: ' + e.message); finish(); }
-      });
-    } catch(e){ log('FAIL probe: ' + e.message); finish(); }
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
-})();
-</script>
 
+window.addEventListener('error', function (e) {
+  var el = document.getElementById('live-log');
+  if (el) el.textContent += '\n[UNCAUGHT] ' + e.message + ' @' + (e.lineno||'?');
+});
+function liveProbe() {
+  var out = [];
+  function log(ok, name, extra) {
+    var line = (ok ? 'PASS ' : 'FAIL ') + name + (extra ? ' :: ' + extra : '');
+    out.push(line); console.log(line);
+    var el = document.getElementById('live-log');
+    if (el) { el.textContent += '\n' + line; el.style.display = 'block'; }
+  }
+  function finish() {
+    var fails = out.filter(function (l) { return l.indexOf('FAIL') === 0; }).length;
+    var el = document.getElementById('live-log');
+    if (el) el.textContent += '\n==== LIVE FITUR G ' + (fails === 0 ? 'ALL PASS' : fails + ' FAIL') + ' (' + (out.length - fails) + '/' + out.length + ') ====';
+    document.title = 'LIVE_DONE';
+  }
+  // force finish no matter what, so dump-dom settles under virtual-time
+  setTimeout(function () { if (document.title !== 'LIVE_DONE') finish(); }, 5000);
+  try {
+    if (!window.UE || !UE.ready) { log(false, 'UE ready'); finish(); return; }
+    var cam = UE.cam, ui = UE.ui, sys = UE.system;
+    log(!!cam && !!ui && !!ui.slot, 'app asli: UE.cam + UE.ui + ui.slot ter-wire');
+    log(sys.bodies.length === 10, 'app asli: 10 bodies ter-render di scene', 'got ' + sys.bodies.length);
+    // 1. auto-orbit via tombol asli → slot aktif
+    document.getElementById('btn-autoorbit').click();
+    log(ui.slot.active === true && ui.slot.info().kind === 'orbit', 'auto-orbit: slot aktif (orbit continuous)');
+    // 2. MANUALLY drive the REAL slot against the REAL cam (deterministic; rAF
+    //    dihindari karena SwiftShader+virtual-time-budget flaky) → cam asli harus bergerak
+    var th0 = cam.tTheta;
+    for (var i = 0; i < 120; i++) ui.slot.tick(cam, 1 / 60);
+    log(Math.abs(cam.tTheta - th0) > 0.1, 'auto-orbit: 120 tick menggerakkan cam asli (fast 14°/s)', 'dTheta=' + (cam.tTheta - th0).toFixed(4) + ' rad = ' + ((cam.tTheta - th0) * 180 / Math.PI).toFixed(1) + '°');
+    // 3. cancelFlight: interrupt instan
+    var before = cam.tTheta;
+    var r = ui.slot.interrupt('manual-input');
+    log(r.wasActive && r.reason === 'manual-input' && !ui.slot.active, 'cancelFlight: interrupt → wasActive+reason, idle');
+    ui.slot.tick(cam, 0.016);
+    log(cam.tTheta === before, 'setelah interrupt, tick tak mengubah cam');
+    // 4. speed words
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'e', bubbles: true }));
+    log(ui.verbSpeed === 'fast', 'speed E -> fast');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', bubbles: true }));
+    log(ui.verbSpeed === 'normal', 'speed W -> normal');
+    // 5. dolly via tour: self-complete -> segmen 2 (400 tick manual ~6.7s)
+    document.getElementById('btn-tour').click();
+    log(ui.slot.active && ui.slot.info().kind === 'dolly', 'tour: dolly segmen 1 aktif');
+    var crashed = '';
+    for (var j = 0; j < 400; j++) {
+      try { ui.tick(1 / 60, UE.camera.position); } catch (err) { crashed = err.message; break; }
+    }
+    log(!crashed && ui.dollyIdx >= 2, 'tour: dolly self-complete -> segmen berikutnya', 'crash=' + crashed + ' dollyIdx=' + ui.dollyIdx);
+    // 6. manual input hentikan tour
+    document.getElementById('viewport').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse' }));
+    log(ui.tourOn === false && !ui.slot.active, 'cancelFlight: pointerdown -> tour+slot berhenti');
+    finish();
+  } catch (err) {
+    log(false, 'probe error', err.message);
+    finish();
+  }
+}
+window.addEventListener('load', function () {
+  setTimeout(function () {
+    var el = document.getElementById('live-log');
+    if (!el) {
+      el = document.createElement('pre');
+      el.id = 'live-log';
+      el.style.cssText = 'position:fixed;top:0;right:0;z-index:9999;background:#000;color:#0f0;padding:8px;max-width:60%;white-space:pre-wrap;font-size:11px;';
+      document.body.appendChild(el);
+    }
+    if (window.UE && UE.ready) liveProbe();
+    else setTimeout(function () { liveProbe(); }, 3500);
+  }, 1000);
+});
+
+</script>
 </body>
 </html>

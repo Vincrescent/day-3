@@ -7,6 +7,7 @@ function build() {
     constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; }
     set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }
     copy(v) { this.x = v.x; this.y = v.y; this.z = v.z; return this; }
+    project(cam) { this.x = 0; this.y = 0; this.z = 0; return this; }
     distanceTo(v) { const dx = this.x - v.x, dy = this.y - v.y, dz = this.z - v.z; return Math.sqrt(dx*dx+dy*dy+dz*dz); }
   }
   class Obj3 {
@@ -61,6 +62,7 @@ function build() {
     Line: class extends Obj3 {}, LineBasicMaterial: class {}, Mesh: class extends Obj3 {}, MeshPhongMaterial: class {},
     MeshBasicMaterial: class {}, Sprite: class extends Obj3 {}, SpriteMaterial: class {},
     Points: class extends Obj3 {}, ShaderMaterial: class {}, SphereGeometry: class {}, RingGeometry: class {},
+    Raycaster: class { intersectObjects() { return []; } },
     CanvasTexture: class { constructor() {} },
     TextureLoader: class { load(u, ok, pr, err) { if (err) setTimeout(() => err(), 0); } },
     AdditiveBlending: 2, sRGBEncoding: 3001, DoubleSide: 2,

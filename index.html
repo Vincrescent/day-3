@@ -42,6 +42,8 @@
 
   <div id="dock">
     <button id="btn-orbits" class="ghost" aria-pressed="true">Orbit</button>
+    <button id="btn-autoorbit" class="ghost" aria-pressed="false" title="Auto-orbit (Q/W/E = kecepatan, drag/scroll = hentikan)">⟳ Orbit</button>
+    <span id="verb-speed" style="color:#94a3b8;font-size:0.65rem;margin-left:0.25rem;">N</span>
     <button id="btn-labels" class="ghost" aria-pressed="true">Label</button>
     <button id="btn-scale" class="ghost" aria-pressed="false">Skala: Visual</button>
     <button id="btn-cine" class="ghost" aria-pressed="false">&#9635; Sinema</button>
@@ -49,7 +51,7 @@
     <button id="btn-tour" class="ghost" aria-pressed="false">&#9654; Jelajahi</button>
   </div>
 
-  <div id="hint">seret berputar &middot; scroll zoom &middot; klik fokus &middot; <b>1&ndash;9</b> planet &middot; <b>0</b> sistem &middot; <b>T</b> jelajahi &middot; <b>O</b> orbit &middot; <b>L</b> label &middot; <b>S</b> skala &middot; <b>C</b> sinema &middot; <b>Spasi</b> pause</div>
+  <div id="hint">seret berputar &middot; scroll zoom &middot; klik fokus &middot; <b>1&ndash;9</b> planet &middot; <b>0</b> sistem &middot; <b>T</b> jelajahi &middot; <b>O</b> orbit &middot; <b>L</b> label &middot; <b>S</b> skala &middot; <b>C</b> sinema &middot; <b>Space</b> pause &middot; <b>Q/W/E</b> kecepatan &middot; <b>Esc</b> stop</div>
 
   <footer id="credits">
     <span>Imagery Bumi: NASA (public domain) via three-globe</span>
@@ -80,6 +82,7 @@
   <script>if (window.THREE) { window.__UE_OK = true; } else { window.addEventListener('load', function(){ window.__UE_NO3D = true; }); }</script>
 
   <script src="js/corona.js"></script>
+  <script src="js/camera-verbs.js"></script>
   <script src="js/split-flap.js"></script>
   <script src="js/noise.js"></script>
   <script src="js/starfield.js"></script>

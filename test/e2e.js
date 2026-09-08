@@ -56,6 +56,7 @@ async function main() {
   load('js/starfield.js');
   load('js/solar-system.js');
   load('js/camera.js');
+  load('js/camera-verbs.js');
   load('js/split-flap.js');
   load('js/ui.js');
   load('js/corona.js');
@@ -110,6 +111,66 @@ async function main() {
   SF.set(flipHost, 'Jupiter');
   check('split-flap: setelah set ke Jupiter, textContent = Jupiter', flipHost.textContent === 'Jupiter');
   check('split-flap: cells dekoratif ada saat kaskade aktif', flipHost.querySelector('.ue-flap-cells') !== null);
+
+  // ---- FITUR G: camera verbs (adaptasi MIT dari God's Eye View cameraVerbs.js) ----
+  const CV = window.UECameraVerbs;
+  check('UECameraVerbs exposes math + createMotionSlot + bindCancelFlight',
+    typeof CV.math.approachValue === 'function' && typeof CV.createMotionSlot === 'function' && typeof CV.bindCancelFlight === 'function');
+  // approachValue: framerate-independent, tanpa overshoot
+  check('approachValue: adopt target saat current NaN', CV.math.approachValue(NaN, 10, 5, 0.1) === 10);
+  check('approachValue: converges tanpa overshoot',
+    (() => { let v = 0; for (let i = 0; i < 200; i++) v = CV.math.approachValue(v, 100, 5, 0.1); return v <= 100 && v > 99.9; })());
+  // routeSpeedProfile: endpoints 0, plateau 1, continuity (C1), distance monotonik
+  const M = CV.math;
+  const p0 = M.routeSpeedProfile(0, 0.3);
+  const p1 = M.routeSpeedProfile(1, 0.3);
+  check('trapezoid: speed(0)=0 & speed(1)=0', p0.speed === 0 && p1.speed === 0);
+  const pm = M.routeSpeedProfile(0.5, 0.3);
+  check('trapezoid: speed(0.5)=1 (plateau)', pm.speed === 1);
+  check('trapezoid: distance(1)=1', Math.abs(p1.distance - 1) < 1e-9);
+  check('trapezoid: distance monotonik 0→1',
+    (() => { let prev = 0; for (let i = 1; i <= 20; i++) { const d = M.routeSpeedProfile(i / 20, 0.3).distance; if (d < prev) return false; prev = d; } return true; })());
+  // continuity C1 di sambungan ramp/plateau (slope smoothstep = 0 di p=1)
+  const eps = 1e-6;
+  const r = 0.3;
+  const sL = (M.routeSpeedProfile(r - eps, r).distance - M.routeSpeedProfile(r - 2 * eps, r).distance) / eps;
+  const sR = (M.routeSpeedProfile(r + eps, r).distance - M.routeSpeedProfile(r, r).distance) / eps;
+  check('trapezoid: C1 di sambungan ramp→plateau (slope kontinyu)', Math.abs(sL - sR) < 1e-3, 'sL=' + sL.toFixed(5) + ' sR=' + sR.toFixed(5));
+  // routeRampFraction bounded
+  check('routeRampFraction: durasi pendek → fraksi max', M.routeRampFraction(0.1) <= 0.35 + 1e-9);
+  check('routeRampFraction: durasi panjang → 0.35/durasi', Math.abs(M.routeRampFraction(10) - 1.1 / 10) < 1e-9);
+
+  // motion slot: single active, once self-stop, continuous runs
+  let slot = CV.createMotionSlot();
+  slot.start('orbit', { direction: 'right', speed: 'normal', mode: 'continuous' });
+  check('slot: orbit continuous aktif', slot.active === true && slot.info().kind === 'orbit');
+  const fakeCam = { tTheta: 0, tPhi: 1.05 };
+  for (let i = 0; i < 120; i++) slot.tick(fakeCam, 1 / 60);
+  check('slot: orbit continuous menggerakkan tTheta', Math.abs(fakeCam.tTheta) > 0.1, 'dTheta=' + fakeCam.tTheta.toFixed(4));
+  const thBefore = fakeCam.tTheta;
+  let intRes = slot.interrupt('manual-input');
+  check('slot: interrupt returns wasActive + reason', intRes.wasActive === true && intRes.reason === 'manual-input' && slot.active === false);
+  slot.tick(fakeCam, 0.016);
+  check('slot: setelah interrupt, tick tak menggerakkan', fakeCam.tTheta === thBefore);
+  // once self-stop
+  slot = CV.createMotionSlot();
+  slot.start('orbit', { direction: 'left', speed: 'fast', mode: 'once' });
+  const fakeCam2 = { tTheta: 0, tPhi: 1.05 };
+  for (let i = 0; i < 120; i++) slot.tick(fakeCam2, 1 / 60);
+  check('slot: once self-stop (inactive setelah ~0.9s)', slot.active === false);
+  // speed words: fast > normal > slow (°/s)
+  check('slot: speed words — fast lebih cepat dari slow',
+    CV.SPEEDS.orbitDegS.fast > CV.SPEEDS.orbitDegS.normal && CV.SPEEDS.orbitDegS.normal > CV.SPEEDS.orbitDegS.slow);
+  // unknown verb ditolak
+  slot = CV.createMotionSlot();
+  const bad = slot.start('warp', {});
+  check('slot: verb tak dikenal ditolak (ok:false)', bad.ok === false);
+  // replace: verb baru mengganti verb lama (replaced)
+  slot = CV.createMotionSlot();
+  slot.start('orbit', { direction: 'right', mode: 'continuous' });
+  const rep = slot.start('tilt', { direction: 'up', mode: 'continuous' });
+  check('slot: verb baru menggantikan lama', rep.ok === true && slot.info().kind === 'tilt');
+  slot.interrupt('cleanup');
 
   // ---- build ----
   let sys, cam, ui;
@@ -239,6 +300,33 @@ async function main() {
   check('tour on', bt.getAttribute('aria-pressed') === 'true' && ui.tourOn);
   bt.click();
   check('tour off', bt.getAttribute('aria-pressed') === 'false' && !ui.tourOn);
+
+  // FITUR G: auto-orbit via UI + slot tick lewat ui.tick
+  // note: _updateLabels butuh camera.project (stub has it) tapi raycaster perlu ada
+  const ba = document.getElementById('btn-autoorbit');
+  ba.click();
+  check('auto-orbit: slot aktif (orbit continuous)', ui.slot.active === true && ui.slot.info().kind === 'orbit');
+  // ui.tick harus berjalan tanpa exception (mock vector cukup)
+  for (let i = 0; i < 10; i++) { try { ui.tick(1 / 60, new window.THREE.Vector3()); } catch (_) { check('ui.tick no crash', false, _.message); break; } }
+  check('auto-orbit: slot tetap aktif setelah tick', ui.slot.active === true);
+  // interrupt via UI
+  ui.slot.interrupt('e2e-stop');
+  check('auto-orbit: interrupt dari UI', ui.slot.active === false);
+  // speed words
+  window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'e' }));
+  check('speed E -> fast', ui.verbSpeed === 'fast');
+  window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'w' }));
+  check('speed W -> normal', ui.verbSpeed === 'normal');
+  // dolly via tour: self-complete → segmen berikutnya lewat ui.tick (400 tick = ~6.7s > segmen pertama ≥2s)
+  bt.click();
+  check('tour: dolly segmen 1 aktif', ui.slot.active && ui.slot.info().kind === 'dolly');
+  let crashed = false;
+  for (let i = 0; i < 400; i++) {
+    try { ui.tick(1 / 60, new window.THREE.Vector3()); } catch (err) { crashed = err.message; break; }
+  }
+  check('tour: dolly self-complete -> segmen berikutnya', !crashed && ui.dollyIdx >= 2, 'crash=' + crashed + ' dollyIdx=' + ui.dollyIdx);
+  bt.click();
+  check('tour off: slot ter-interrupt', !ui.slot.active);
 
   // ---- damping kamera ----
   for (let i = 0; i < 120; i++) cam.update(1 / 60);

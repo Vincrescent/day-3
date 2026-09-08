@@ -48,7 +48,8 @@ Tidak perlu API key. Tidak perlu build step. 100% vanilla HTML/CSS/JS + Three.js
 | Matahari hidup | Korona sprite additive + denyut, **glow corona sinematik** (sinar radial + arc, overlay screen-space) |
 | Halo Bulan | Cahaya dingin sinematik saat kamera dekat Bulan (overlay screen-space) |
 | Bintang | 28.000 partikel (field + pita Bimasakti) + 3 nebula, additive |
-| Navigasi | Drag, scroll, pinch, klik (raycast drag-safe), double-click, label 3D, chips, keyboard `1–9` `0` `T` `O` `C` `S` `L` `Space` |
+| Navigasi | Drag, scroll, pinch, klik (raycast drag-safe), double-click, label 3D, chips, keyboard `1–9` `0` `T` `O` `C` `S` `L` `Space` **`Q/W/E` speed, `Esc` stop** |
+| Auto-orbit & dolly | Tombol `⟳ Orbit` (kamera berputar sendiri), **cancelFlight reflex** (drag/scroll = hentikan instan), dolly sinematik ease-in/out di auto-tour, speed words slow/normal/fast |
 | Time control | Pause/resume + slider kecepatan 0,25×–10× |
 | Scale mode | Visual (kompak) ↔ Orbit-akurat (1 AU = 60 unit) — transisi di-lerp |
 | Cinematic | Letterbox 2,35:1 + auto-tour + UI tersembunyi |
@@ -69,6 +70,7 @@ universe-eye/
 │   ├── camera.js         # kamera bola + damping eksponensial + follow
 │   ├── corona.js         # glow corona Matahari + halo Bulan (adaptasi MIT — lihat bawah)
 │   ├── split-flap.js     # flip-mekanik per-karakter (adaptasi MIT — lihat bawah)
+│   ├── camera-verbs.js   # motion slot + auto-orbit + dolly trapezoid (adaptasi MIT — lihat bawah)
 │   ├── ui.js             # panel info, chips, labels, tour, keyboard
 │   └── app.js            # orkestrator: renderer, raycast, adaptive DPR, loop
 ├── assets/textures/      # 4 tekstur Bumi (NASA, public domain) — 2.9 MB total
@@ -85,14 +87,14 @@ universe-eye/
 
 Setiap modul ≤ ~300 baris, single-responsibility, tanpa dependensi satu sama lain
 kecuali urutan bootstrap di `index.html` (pola modular terinspirasi *God's Eye
-View* — MIT). `corona.js` dan `split-flap.js` adalah **adaptasi MIT** dari
-bagian murni referensi (bebas Cesium) — atribusi penuh di
+View* — MIT). `corona.js`, `split-flap.js`, dan `camera-verbs.js` adalah
+**adaptasi MIT** dari bagian murni referensi (bebas Cesium) — atribusi penuh di
 `THIRD_PARTY_NOTICES.md`.
 
 ## Pengujian
 
 ```bash
-node test/e2e.js    # → 67/67 checks passed
+node test/e2e.js    # → 93/93 checks passed
 ```
 Harness menjalankan **kode produksi nyata** (noise, data, kamera, UI, math corona)
 di jsdom dengan stub THREE. Menutupi: data, build tanpa canvas, parenting Bulan,

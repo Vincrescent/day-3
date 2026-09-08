@@ -32,6 +32,11 @@
     this.orbitsOn = true;
     this.cinematic = false;
     this.timeScale = 1;        // 0 = pause
+    // FITUR G — camera verbs (adaptasi MIT): satu slot gerak aktif
+    this.slot = UECameraVerbs.createMotionSlot();
+    this.verbSpeed = 'normal'; // slow | normal | fast (Q/W/E)
+    this.dollyIdx = 0;         // urutan dolly tour (arah dijelangkan tiap segmen)
+    this.dollyT = 0;
     this._labelsBuilt = false;
     this._proj = new THREE.Vector3();
     this._init();
@@ -67,6 +72,8 @@
     bci.addEventListener('click', function () { self.toggleCinematic(); });
     var bt = $('btn-tour');
     bt.addEventListener('click', function () { self.setTour(!self.tourOn); });
+    var ba = $('btn-autoorbit');
+    if (ba) ba.addEventListener('click', function () { self.toggleAutoOrbit(); });
     $('panel-close').addEventListener('click', function () { self.goSystem(); });
 
     // time control
@@ -89,6 +96,10 @@
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
       var k = e.key;
+      // FITUR G: verb speed words (Q=slow, W=normal, E=fast)
+      if (k === 'q' || k === 'Q') { self.verbSpeed = 'slow'; return; }
+      if (k === 'w' || k === 'W') { self.verbSpeed = 'normal'; return; }
+      if (k === 'e' || k === 'E') { self.verbSpeed = 'fast'; return; }
       if (k >= '1' && k <= '9') {
         self.focusId(ORDER[+k - 1]);
       } else if (k === '0') {
@@ -107,6 +118,7 @@
       } else if (k === 'c' || k === 'C') {
         self.toggleCinematic();
       } else if (k === 'Escape') {
+        self.slot.interrupt('esc-stop');
         if (self.cinematic) self.toggleCinematic();
         else self.goSystem();
       }
@@ -230,14 +242,42 @@
     else { this.setTour(false); }
   };
 
+  // FITUR G — auto orbit & dolly tour (adaptasi MIT cancelFlight reflex)
+  UEUI.prototype.toggleAutoOrbit = function () {
+    var btn = $('btn-autoorbit');
+    if (btn) btn.classList.toggle('active', !btn.classList.contains('active'));
+    if (!this.slot.active) {
+      this.slot.start('orbit', { direction: 'right', speed: this.verbSpeed, mode: 'continuous' });
+    } else {
+      var r = this.slot.interrupt('manual-orbit-stop');
+      if (r.wasActive) btn && btn.classList.remove('active');
+    }
+  };
+
+  /**
+   * Dolly tour: rangkaian dolly segmen sinematik dengan profil trapezoid
+   * (smoothstep naik → cruise → smoothstep turun). Diambil dari pola
+   * cameraVerbs.js: satu gerak aktif per waktu, kecepatan trapezoid.
+   */
+  UEUI.prototype._dollyNextSegment = function () {
+    var totalDeg = [20, 35, 15, 50, 40][this.dollyIdx % 5] * (this.dollyIdx % 2 === 0 ? 1 : -1);
+    this.slot.start('dolly', { direction: 'right', speed: this.verbSpeed, totalDeg: Math.abs(totalDeg), durationS: Math.max(2, Math.abs(totalDeg) / 20) });
+    this._dollyRunning = true;
+    this.dollyIdx++;
+  };
+
   UEUI.prototype.setTour = function (on) {
     this.tourOn = on;
     this.tourT = 0;
     var b = $('btn-tour');
     b.setAttribute('aria-pressed', String(on));
-    b.classList.toggle('on', on);
     b.innerHTML = on ? '&#10074;&#10074; Jeda' : '&#9654; Jelajahi';
-    if (on) this._tourNext(true);
+    if (on) {
+      this.dollyIdx = 0;
+      this._dollyNextSegment();
+    } else {
+      this.slot.interrupt('tour-off');
+    }
   };
 
   UEUI.prototype._tourNext = function (instant) {
@@ -269,6 +309,22 @@
 
   // ---------- TICK (dipanggil per frame dari app) ----------
   UEUI.prototype.tick = function (dt, camPos) {
+    // FITUR G: proses verb aktif
+    var wasDolly = this.slot.active && this.slot.info().kind === 'dolly';
+    if (this.slot.active) this.slot.tick(this.camera, dt);
+    // FITUR G: dolly self-complete → segmen berikutnya (hanya kalau bukan
+    // di-interrupt manual — cancelFlight: setelah drag/scroll, jangan rebut
+    // kamera kembali)
+    if (wasDolly && !this.slot.active && this._dollyRunning) {
+      this._dollyRunning = false;
+      if (this.tourOn) this._dollyNextSegment();
+    }
+    // FITUR G: speed indicator
+    var sp = $('verb-speed');
+    if (sp) {
+      var want = { slow: 'S', normal: 'N', fast: 'F' }[this.verbSpeed] || '?';
+      if (sp.textContent !== want) sp.textContent = want;
+    }
     if (this.tourOn) {
       this.tourT += dt;
       if (this.tourT > this.tourStop) this._tourNext(false);

@@ -33,6 +33,7 @@ Di-host ulang oleh [three-globe](https://github.com/vasturiano/three-globe)
 | Three.js r128 (UMD) | MIT | Via cdnjs, fallback jsdelivr |
 | `js/corona.js` (adaptasi) | **MIT** | Diadaptasi dari "God's Eye View" `src/celestialRing.js` (Bilawal Sidhu, 2026). Lihat §2a. |
 | `js/split-flap.js` (adaptasi) | **MIT** | Diadaptasi dari "God's Eye View" `src/splitFlap.js` (Bilawal Sidhu, 2026). Lihat §2b. |
+| `js/camera-verbs.js` (adaptasi) | **MIT** | Diadaptasi dari "God's Eye View" `src/cameraVerbs.js` (Bilawal Sidhu, 2026). Lihat §2c. |
 
 ### 2a. Adaptasi MIT — `corona.js` (wajib & sudah terpenuhi)
 
@@ -83,14 +84,45 @@ Kill-switch `SPLIT_FLAP_ENABLED=false` mengembalikan swap teks instan.
 
 **Syarat MIT (atribusi):** header `js/split-flap.js` + `THIRD_PARTY_NOTICES.md` + file ini.
 
+## 2c. Adaptasi MIT — `camera-verbs.js` (wajib & sudah terpenuhi)
+
+Sumber: **God's Eye View** — `src/cameraVerbs.js` (1157 baris), MIT License,
+Copyright (c) 2026 Bilawal Sidhu.
+
+`cameraVerbs.js` sebagian besar terikat Cesium (route dolly street-following,
+bank turn, terrain floor, corridor warming). **Hanya bagian murni** yang
+dipindah — semuanya bebas Cesium:
+
+- **Pola single active-motion slot**: satu gerak pada satu waktu; verb baru
+  menggantikan yang lama (`replaced`); `interruptCameraMotion(reason)` satu-satunya
+  release path.
+- **`once` vs `continuous`**: `once` = nudge bounded dengan ease-out yang
+  self-stop saat budget habis; `continuous` berjalan sampai di-interrupt.
+- **CancelFlight reflex**: "ANY manual camera input reclaims control" —
+  pointerdown/wheel meng-interrupt gerak aktif, instan (tidak di-ease).
+- **Speed words** (`slow`/`normal`/`fast`) → tabel °/s (nilai konstan
+  di-retune untuk skala tata surya, bukan salinan angka referensi).
+- **`approachValue`** — first-order approach framerate-independent
+  `1 - e^(-rate*dt)`.
+- **`routeRampFraction` + `routeSpeedProfile`** — profil kecepatan trapezoid
+  (smoothstep naik → cruise → smoothstep turun) dengan integral closed-form:
+  posisi presisi tanpa akumulasi drift per-frame, speed kontinu (C1) di
+  sambungan ramp↔plateau.
+
+Aksesibilitas & kill-switch: `prefers-reduced-motion` sudah dihormati di
+layer kamera (damping pelan, tanpa intro); dolly & orbit berhenti instan pada
+input manual.
+
+**Syarat MIT (atribusi):** header `js/camera-verbs.js` + `THIRD_PARTY_NOTICES.md` + file ini.
+
 ## 3. Orisinal (tanpa lisensi pihak ketiga)
 
-Semua file `js/*.js` selain adaptasi di §2a/§2b = karya orisinal Universe Eye:
+Semua file `js/*.js` selain adaptasi di §2a/§2b/§2c = karya orisinal Universe Eye:
 - noise.js — value noise 3D + fBm + RNG seed
 - starfield.js — 28.000 bintang, pita Bimasakti, nebula
 - solar-system.js — 7 tekstur planet prosedural, cincin Saturnus, korona
 - camera.js, ui.js, app.js, css/style.css
-- (corona.js = adaptasi §2a; split-flap.js = adaptasi §2b)
+- (corona.js = adaptasi §2a; split-flap.js = adaptasi §2b; camera-verbs.js = adaptasi §2c)
 
 ## 4. Data (fakta ilmiah — public domain)
 
