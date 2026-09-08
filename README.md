@@ -1,6 +1,6 @@
 # SOLAR WATCH
 
-**Day 4 — 30 Days Make a Project** · Pemantau aktivitas tata surya real-time di browser.
+**Day 3 — 30 Days Make a Project** · Pemantau aktivitas tata surya real-time di browser.
 
 Buka `index.html` langsung (double-click) atau via `python -m http.server`. Tanpa build step, tanpa dependency.
 
