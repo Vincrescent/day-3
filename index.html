@@ -737,30 +737,194 @@ const nightMesh = new THREE.Mesh(nightGeo, nightMat);
 nightMesh.visible = false;
 earthGroup.add(nightMesh);
 
-// satellite orbits (6 LEO, 2 GEO arcs)
+// satellite orbits (6 LEO, 2 GEO arcs) — authentic detailed 3D models
 const satGroup = new THREE.Group();
 satGroup.visible = false;
 earthGroup.add(satGroup);
 const satNames = ['ISS','HUBBLE','LANDSAT-9','GOES-16','GPS-IIF','STARLINK'];
 const satMeshes = [];
+const solarMat = new THREE.MeshStandardMaterial({
+  color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.85,
+  metalness: 0.8, roughness: 0.2, side: THREE.DoubleSide,
+});
+const goldFoilMat = new THREE.MeshStandardMaterial({
+  color: 0xf59e0b, metalness: 0.9, roughness: 0.25, emissive: 0xd97706, emissiveIntensity: 0.55,
+});
+const silverMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff, metalness: 0.85, roughness: 0.15, emissive: 0x94a3b8, emissiveIntensity: 0.45,
+});
+const whiteModuleMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff, metalness: 0.4, roughness: 0.5, emissive: 0x64748b, emissiveIntensity: 0.35,
+});
+const darkTrussMat = new THREE.MeshStandardMaterial({
+  color: 0x475569, metalness: 0.7, roughness: 0.3, emissive: 0x1e293b, emissiveIntensity: 0.3,
+});
+const strobeMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+
+function createSatelliteModel(type) {
+  const g = new THREE.Group();
+  if (type === 'ISS') {
+    // Central pressurized module stack (Zvezda / Destiny)
+    const mod1 = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 1.8, 16), whiteModuleMat);
+    mod1.rotation.z = Math.PI / 2;
+    g.add(mod1);
+    const cross = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.2, 16), whiteModuleMat);
+    cross.rotation.x = Math.PI / 2;
+    g.add(cross);
+    // Integrated truss structure (long beam across)
+    const truss = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.14, 0.14), darkTrussMat);
+    g.add(truss);
+    // 4 pairs of massive solar array wings (8 wings total)
+    for (let s of [-1, 1]) {
+      for (let p of [-1, 1]) {
+        const panel = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.65, 0.05), solarMat);
+        panel.rotation.x = Math.PI / 4; // 45 deg tilt so always broad & reflective
+        panel.position.set(s * 1.5, p * 0.42, 0);
+        g.add(panel);
+      }
+    }
+    // Thermal radiators
+    const rad = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.04), whiteModuleMat);
+    rad.rotation.y = Math.PI / 2;
+    rad.position.set(0, 0, -0.6);
+    g.add(rad);
+    g.scale.set(1.4, 1.4, 1.4);
+  } else if (type === 'HUBBLE') {
+    // Main telescope tube (silver barrel)
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.32, 1.5, 20), silverMat);
+    tube.rotation.x = Math.PI / 2;
+    g.add(tube);
+    // Aft shroud (wider equipment section)
+    const aft = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.5, 20), silverMat);
+    aft.rotation.x = Math.PI / 2;
+    aft.position.z = -0.8;
+    g.add(aft);
+    // Tilted aperture door (front cover)
+    const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.04, 20), silverMat);
+    lid.position.set(0, 0.25, 0.75);
+    lid.rotation.x = -Math.PI / 3;
+    g.add(lid);
+    // Twin solar panels on booms
+    for (let s of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8), darkTrussMat);
+      arm.rotation.z = Math.PI / 2;
+      arm.position.x = s * 0.55;
+      g.add(arm);
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.6, 0.05), solarMat);
+      panel.rotation.x = Math.PI / 5;
+      panel.position.set(s * 1.35, 0, 0);
+      g.add(panel);
+    }
+    // High gain antenna dishes
+    for (let s of [-1, 1]) {
+      const dish = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.1, 16, 1, true), silverMat);
+      dish.position.set(s * 0.45, 0.38, -0.3);
+      dish.rotation.x = Math.PI / 3;
+      g.add(dish);
+    }
+    g.scale.set(1.4, 1.4, 1.4);
+  } else if (type === 'LANDSAT-9') {
+    // Gold foil satellite bus
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.9), goldFoilMat);
+    g.add(body);
+    // Earth-pointing optical sensor suite (OLI-2 & TIRS-2)
+    const sensor = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.45, 16), silverMat);
+    sensor.position.y = -0.55;
+    g.add(sensor);
+    // Single deployable solar wing
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.75, 0.05), solarMat);
+    wing.rotation.x = Math.PI / 5;
+    wing.position.set(1.5, 0.15, 0);
+    g.add(wing);
+    g.scale.set(1.3, 1.3, 1.3);
+  } else if (type === 'GOES-16') {
+    // Cube weather spacecraft body
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.75, 0.75), whiteModuleMat);
+    g.add(body);
+    // Earth-facing radiometer barrel
+    const sensor = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.4, 16), silverMat);
+    sensor.position.y = -0.52;
+    g.add(sensor);
+    // Solar array boom & wing
+    const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.6, 8), darkTrussMat);
+    boom.rotation.z = Math.PI / 2;
+    boom.position.x = -0.7;
+    g.add(boom);
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.8, 0.05), solarMat);
+    wing.rotation.x = Math.PI / 5;
+    wing.position.set(-2.0, 0, 0);
+    g.add(wing);
+    // Magnetometer boom
+    const mag = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.4, 8), silverMat);
+    mag.rotation.z = -Math.PI / 2;
+    mag.position.x = 1.1;
+    g.add(mag);
+    g.scale.set(1.3, 1.3, 1.3);
+  } else if (type === 'GPS-IIF') {
+    // Gold foil navigation bus
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.65, 0.85), goldFoilMat);
+    g.add(body);
+    // Nadir L-band antenna array
+    const lband = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.4, 16), silverMat);
+    lband.rotation.x = Math.PI;
+    lband.position.y = -0.58;
+    g.add(lband);
+    // Dual symmetric solar arrays
+    for (let s of [-1, 1]) {
+      const wing = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.65, 0.05), solarMat);
+      wing.rotation.x = Math.PI / 5;
+      wing.position.set(s * 1.25, 0, 0);
+      g.add(wing);
+    }
+    g.scale.set(1.3, 1.3, 1.3);
+  } else if (type === 'STARLINK') {
+    // Flat-pack chassis
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.08, 1.1), silverMat);
+    g.add(chassis);
+    // Fold-out solar array blanket standing tall
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.8, 0.04), solarMat);
+    panel.position.set(0, 0.95, -0.5);
+    g.add(panel);
+    // Krypton/Argon ion thruster with cyan glow
+    const thruster = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.07, 0.1, 0.14, 8),
+      new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x38bdf8, emissiveIntensity: 2.5 })
+    );
+    thruster.rotation.x = Math.PI / 2;
+    thruster.position.set(0, 0, -0.6);
+    g.add(thruster);
+    g.scale.set(1.4, 1.4, 1.4);
+  }
+  // Add blinking navigation beacon to every satellite
+  const strobe = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), strobeMat);
+  strobe.position.y = 0.6;
+  strobe.userData.isStrobe = true;
+  g.add(strobe);
+  return g;
+}
+
 for (let i = 0; i < 6; i++) {
-  const r = VIS_R.earth * (1.18 + i * 0.14);
-  const inc = (18 + i * 16) * DEG;
+  const r = VIS_R.earth * (1.25 + i * 0.16);
+  const inc = (22 + i * 18) * DEG;
+  const phase = i * (Math.PI * 2 / 6); // distributed 60 deg apart
   const pts = [];
   for (let a = 0; a <= 360; a += 3) {
     const rad = a * DEG;
     pts.push(new THREE.Vector3(r * Math.cos(rad), r * Math.sin(rad) * Math.sin(inc), r * Math.sin(rad) * Math.cos(inc)));
   }
   const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
-  const lineMat = new THREE.LineBasicMaterial({ color: i < 3 ? 0x38bdf8 : 0x22c55e, transparent: true, opacity: 0.4 });
+  const lineMat = new THREE.LineBasicMaterial({ color: i < 3 ? 0x38bdf8 : 0x22c55e, transparent: true, opacity: 0.45 });
   satGroup.add(new THREE.LineLoop(lineGeo, lineMat));
-  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), new THREE.MeshBasicMaterial({ color: i < 3 ? 0x38bdf8 : 0x22c55e }));
-  dot.userData = { r, inc, speed: (0.0004 + i * 0.00012), name: satNames[i] };
-  satGroup.add(dot);
-  satMeshes.push(dot);
-  const sp = makeNameSprite(satNames[i], i < 3 ? '#38bdf8' : '#22c55e', 3.8);
-  sp.position.y = 1.1;
-  dot.add(sp);
+  // Authentic 3D satellite model
+  const model = createSatelliteModel(satNames[i]);
+  model.position.set(r * Math.cos(phase), r * Math.sin(phase) * Math.sin(inc), r * Math.sin(phase) * Math.cos(inc));
+  model.userData = { r, inc, phase, speed: (0.0004 + i * 0.00012), name: satNames[i] };
+  satGroup.add(model);
+  satMeshes.push(model);
+  // Name sprite floating above
+  const sp = makeNameSprite(satNames[i], i < 3 ? '#38bdf8' : '#22c55e', 4.2);
+  sp.position.y = 1.6;
+  model.add(sp);
 }
 
 // HUD overlay element
@@ -906,7 +1070,7 @@ function enterGodsEye() {
   const dir = p.clone().normalize();
   const tangent = new THREE.Vector3(-dir.z, 0.4, dir.x).normalize();
   const camOffset = dir.clone().multiplyScalar(-10).add(tangent.clone().multiplyScalar(12));
-  camOffset.setLength(18);
+  camOffset.setLength(26);
 
   targetPos = p.clone().add(camOffset);
   targetLook = p.clone();
@@ -990,7 +1154,9 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
 function getClickable() {
-  return [...Object.values(planetMeshes), moon];
+  const list = [...Object.values(planetMeshes), moon];
+  if (godsEyeActive && satGroup.visible) list.push(...satMeshes);
+  return list;
 }
 
 canvas.addEventListener('mousemove', (e) => {
@@ -998,12 +1164,20 @@ canvas.addEventListener('mousemove', (e) => {
   mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
-  const hits = raycaster.intersectObjects(getClickable());
+  const hits = raycaster.intersectObjects(getClickable(), true);
   if (hits.length > 0) {
-    const b = hits[0].object.userData;
-    if (b.id === 'moon') {
+    // Find parent with userData
+    let obj = hits[0].object;
+    while (obj && !obj.userData?.id && !obj.userData?.name && obj.parent) {
+      obj = obj.parent;
+    }
+    const b = obj?.userData || {};
+    if (b.name && satNames.includes(b.name)) {
+      const altKm = Math.round(((b.r - VIS_R.earth) / VIS_R.earth) * 6371);
+      tooltip.innerHTML = `<b>🛰 ${b.name}</b><br>📍 Orbit LEO: ${altKm} km<br>⚡ Kecepatan: 7.66 km/s`;
+    } else if (b.id === 'moon') {
       tooltip.innerHTML = `<b>Bulan (Moon)</b><br>📍 Satelit Alami Bumi<br>⚡ Orbit: 1.02 km/s`;
-    } else {
+    } else if (b.name) {
       const p = heliocentric(b, Date.now());
       tooltip.innerHTML = `<b>${b.name}</b><br>📍 ${p.rAU.toFixed(3)} AU<br>⚡ ${p.vKms.toFixed(1)} km/s`;
     }
@@ -1020,9 +1194,14 @@ canvas.addEventListener('mousemove', (e) => {
 canvas.addEventListener('click', (e) => {
   if (animating) return;
   raycaster.setFromCamera(mouse, camera);
-  const hits = raycaster.intersectObjects(getClickable());
+  const hits = raycaster.intersectObjects(getClickable(), true);
   if (hits.length > 0) {
-    window.__SW.focusPlanet(hits[0].object.userData.id);
+    let obj = hits[0].object;
+    while (obj && !obj.userData?.id && !obj.userData?.name && obj.parent) {
+      obj = obj.parent;
+    }
+    const b = obj?.userData;
+    if (b?.id) window.__SW.focusPlanet(b.id);
   }
 });
 
@@ -1094,12 +1273,24 @@ function animate(time) {
     // night & atmos match earth rotation
     nightMesh.rotation.y = planetMeshes.earth.rotation.y;
     atmosMesh.rotation.y = planetMeshes.earth.rotation.y;
-    // satellites orbit
+    // satellites orbit with forward-facing orientation & blinking strobe beacon
     if (satGroup.visible) {
-      for (const dot of satMeshes) {
-        const { r, inc, speed } = dot.userData;
-        const ang = t * speed;
-        dot.position.set(r * Math.cos(ang), r * Math.sin(ang) * Math.sin(inc), r * Math.sin(ang) * Math.cos(inc));
+      const strobeColor = (Math.floor(t / 500) % 2 === 0) ? 0x38bdf8 : 0x0369a1;
+      strobeMat.color.setHex(strobeColor);
+      for (const model of satMeshes) {
+        const { r, inc, phase, speed } = model.userData;
+        const ang = t * speed + phase;
+        const x = r * Math.cos(ang);
+        const y = r * Math.sin(ang) * Math.sin(inc);
+        const z = r * Math.sin(ang) * Math.cos(inc);
+        model.position.set(x, y, z);
+
+        // Face forward along orbital trajectory
+        const aN = ang + 0.015;
+        const xN = r * Math.cos(aN);
+        const yN = r * Math.sin(aN) * Math.sin(inc);
+        const zN = r * Math.sin(aN) * Math.cos(inc);
+        model.lookAt(xN, yN, zN);
       }
     }
     // HUD telemetry & camera tracking
