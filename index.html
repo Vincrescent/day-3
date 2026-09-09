@@ -25,7 +25,35 @@
 html,body{height:100%;overflow:hidden}
 body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex;flex-direction:column}
 
-/* ─── LOADING SCREEN ─── */
+/* ─── INTRO / LANDING PAGE ─── */
+#intro-screen{position:fixed;inset:0;z-index:10000;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;overflow:hidden;transition:opacity 1.2s ease}
+#intro-screen.hidden{opacity:0;pointer-events:none}
+.intro-stars{position:absolute;inset:0;overflow:hidden}
+.intro-star{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;animation:twinkle 3s infinite}
+@keyframes twinkle{0%,100%{opacity:.3}50%{opacity:1}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes orbit-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.intro-content{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:24px;text-align:center;padding:20px}
+.intro-sun{width:120px;height:120px;border-radius:50%;background:radial-gradient(circle at 38% 38%,#ffd76e,#f97316 45%,#dc2626 80%,transparent 100%);box-shadow:0 0 60px #f9731688,0 0 120px #f9731644,0 0 200px #f9731622;animation:sun-pulse 4s ease-in-out infinite}
+@keyframes sun-pulse{0%,100%{box-shadow:0 0 60px #f9731688,0 0 120px #f9731644;transform:scale(1)}50%{box-shadow:0 0 80px #f97316aa,0 0 160px #f9731666;transform:scale(1.03)}}
+.intro-orbit{position:absolute;width:200px;height:200px;border:1px solid rgba(56,189,248,.12);border-radius:50%;animation:orbit-spin 20s linear infinite}
+.intro-orbit:nth-child(2){width:280px;height:280px;border-color:rgba(167,139,250,.08);animation-duration:35s;animation-direction:reverse}
+.intro-orbit .dot{position:absolute;width:6px;height:6px;border-radius:50%;top:-3px;left:50%;margin-left:-3px}
+.intro-title{font-size:clamp(28px,6vw,56px);font-weight:800;letter-spacing:.12em;background:linear-gradient(135deg,#fbbf24,#f97316,#ef4444,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-shadow:none;line-height:1.1}
+.intro-subtitle{font-size:clamp(12px,2vw,16px);color:var(--muted);max-width:500px;line-height:1.6;letter-spacing:.03em}
+.intro-tagline{font-size:11px;color:rgba(255,255,255,.25);letter-spacing:.15em;text-transform:uppercase;margin-top:-8px}
+.intro-btn{margin-top:16px;padding:14px 48px;border-radius:50px;border:2px solid var(--accent);background:rgba(56,189,248,.08);color:var(--accent);font-size:16px;font-weight:700;letter-spacing:.15em;cursor:pointer;transition:all .3s ease;text-transform:uppercase;position:relative;overflow:hidden}
+.intro-btn:hover{background:rgba(56,189,248,.2);box-shadow:0 0 30px rgba(56,189,248,.3);transform:translateY(-2px)}
+.intro-btn:active{transform:translateY(0)}
+.intro-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);transform:translateX(-100%);transition:transform .6s}
+.intro-btn:hover::after{transform:translateX(100%)}
+.intro-version{font-size:10px;color:rgba(255,255,255,.2);margin-top:8px;letter-spacing:.1em}
+.intro-loading{display:flex;flex-direction:column;align-items:center;gap:10px}
+.intro-loader{width:180px;height:2px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
+.intro-loader-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%;transition:width .4s ease}
+.intro-load-text{font-size:11px;color:var(--muted)}
+
+/* ─── LOADING SCREEN (after intro) ─── */
 #loading-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;transition:opacity .6s}
 #loading-screen.hidden{opacity:0;pointer-events:none}
 .loader-ring{width:60px;height:60px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
@@ -185,6 +213,38 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 </head>
 <body>
 
+<!-- INTRO / LANDING SCREEN -->
+<div id="intro-screen">
+  <div class="intro-stars" id="intro-stars"></div>
+  <div class="intro-content">
+    <div style="position:relative;display:flex;align-items:center;justify-content:center">
+      <div class="intro-sun"></div>
+      <div class="intro-orbit"><div class="dot" style="background:#38bdf8"></div></div>
+      <div class="intro-orbit"><div class="dot" style="background:#a78bfa"></div></div>
+    </div>
+    <div class="intro-title">SOLAR WATCH</div>
+    <div class="intro-tagline">Interactive 3D Solar System Explorer</div>
+    <div class="intro-subtitle">
+      Real-time orbital simulation powered by NASA Kepler mechanics.<br>
+      Track near-Earth asteroids, explore spacecraft, and travel through time.
+    </div>
+    <div class="intro-loading" id="intro-loading">
+      <div class="intro-loader"><div class="intro-loader-bar" id="intro-bar"></div></div>
+      <div class="intro-load-text" id="intro-load-text">Initializing...</div>
+    </div>
+    <button class="intro-btn" id="intro-start" style="display:none" aria-label="Enter Solar Watch">
+      ▶ MULAI
+    </button>
+    <div class="intro-version">30 Days Build Challenge — Day 3</div>
+  </div>
+</div>
+
+<!-- WELCOME AUDIO (user will provide voice file) -->
+<audio id="welcome-audio" preload="auto">
+  <source src="assets/audio/welcome.mp3" type="audio/mpeg">
+  <source src="assets/audio/welcome.ogg" type="audio/ogg">
+</audio>
+
 <!-- LOADING SCREEN -->
 <div id="loading-screen">
   <div class="brand-icon" style="width:48px;height:48px;box-shadow:0 0 30px #f9731688"></div>
@@ -323,6 +383,83 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
      ═══════════════════════════════════════════════ -->
 <script>
 'use strict';
+
+// ─── INTRO SCREEN LOGIC ───────────────────────────
+(function initIntro() {
+  const introScreen = document.getElementById('intro-screen');
+  const introBar = document.getElementById('intro-bar');
+  const introText = document.getElementById('intro-load-text');
+  const introBtn = document.getElementById('intro-start');
+  const introLoading = document.getElementById('intro-loading');
+  const starsEl = document.getElementById('intro-stars');
+
+  // Generate starfield
+  if (starsEl) {
+    for (let i = 0; i < 120; i++) {
+      const s = document.createElement('div');
+      s.className = 'intro-star';
+      s.style.left = Math.random() * 100 + '%';
+      s.style.top = Math.random() * 100 + '%';
+      s.style.animationDelay = (Math.random() * 4) + 's';
+      s.style.animationDuration = (2 + Math.random() * 3) + 's';
+      s.style.width = s.style.height = (1 + Math.random() * 2) + 'px';
+      starsEl.appendChild(s);
+    }
+  }
+
+  // Loading progress simulation
+  const stages = [
+    { pct: 15, text: 'Loading Kepler solver...' },
+    { pct: 30, text: 'Computing orbital elements...' },
+    { pct: 45, text: 'Initializing 3D renderer...' },
+    { pct: 60, text: 'Loading planet textures...' },
+    { pct: 75, text: 'Connecting to NASA NeoWs...' },
+    { pct: 88, text: 'Building solar system...' },
+    { pct: 100, text: 'Ready.' }
+  ];
+
+  let stageIdx = 0;
+  const advanceStage = () => {
+    if (!introBar || !introText) return;
+    if (stageIdx < stages.length) {
+      const st = stages[stageIdx];
+      introBar.style.width = st.pct + '%';
+      introText.textContent = st.text;
+      stageIdx++;
+      if (stageIdx < stages.length) {
+        setTimeout(advanceStage, 400 + Math.random() * 300);
+      } else {
+        // Done loading — show MULAI button
+        setTimeout(() => {
+          if (introLoading) introLoading.style.display = 'none';
+          if (introBtn) {
+            introBtn.style.display = '';
+            introBtn.style.animation = 'fadeIn .5s ease';
+          }
+        }, 500);
+      }
+    }
+  };
+  setTimeout(advanceStage, 600);
+
+  // MULAI button click
+  if (introBtn) {
+    introBtn.addEventListener('click', () => {
+      // Play welcome audio (if file exists)
+      const audio = document.getElementById('welcome-audio');
+      if (audio && audio.src) {
+        audio.volume = 0.7;
+        audio.play().catch(() => {}); // Ignore if no audio file
+      }
+
+      // Fade out intro
+      introScreen.classList.add('hidden');
+      setTimeout(() => {
+        introScreen.remove();
+      }, 1300);
+    });
+  }
+})();
 
 // NASA API key — get free key at https://api.nasa.gov to avoid rate limits
 // Set via URL param ?api_key=YOUR_KEY or localStorage
@@ -990,29 +1127,65 @@ for (const sc of SPACECRAFT_DATA) {
 }
 
 // ─── ASTEROID MARKERS (3D) ─────────────────────────
+// ─── PROCEDURAL ASTEROID GEOMETRY ──────────────────
+function makeAsteroidGeometry(seed, size) {
+  // Create irregular rocky shape from deformed icosahedron
+  const detail = size > 1.2 ? 2 : 1;
+  const geo = new THREE.IcosahedronGeometry(size, detail);
+  const positions = geo.attributes.position;
+  let s = seed || 1;
+  const rng = () => { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; };
+  for (let i = 0; i < positions.count; i++) {
+    const v = new THREE.Vector3().fromBufferAttribute(positions, i);
+    // Irregular displacement for rocky look
+    const noise = 0.6 + rng() * 0.8;
+    v.multiplyScalar(noise);
+    // Add some angular bumps
+    const bump = Math.sin(v.x * 5 + seed) * Math.cos(v.z * 4) * 0.15;
+    v.multiplyScalar(1 + bump);
+    positions.setXYZ(i, v.x, v.y, v.z);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
 const asteroidGroup = new THREE.Group();
 scene.add(asteroidGroup);
 let currentAsteroids = [];
 const asteroidMarkerMeshes = [];
 
+// Shared materials for asteroids
+const astMatHazard = new THREE.MeshStandardMaterial({
+  color:0xc44040, roughness:0.85, metalness:0.15,
+  emissive:0xef4444, emissiveIntensity:0.25
+});
+const astMatNormal = new THREE.MeshStandardMaterial({
+  color:0x8888aa, roughness:0.9, metalness:0.1,
+  emissive:0xa78bfa, emissiveIntensity:0.1
+});
+
 function syncAsteroids(arr) {
   while(asteroidGroup.children.length) asteroidGroup.remove(asteroidGroup.children[0]);
   asteroidMarkerMeshes.length = 0;
-  const matH = new THREE.MeshBasicMaterial({color:0xef4444});
-  const matN = new THREE.MeshBasicMaterial({color:0xa78bfa});
   const ep = planetMeshes.earth ? planetMeshes.earth.position : new THREE.Vector3();
   arr.slice(0,60).forEach((a,i) => {
-    const geo = new THREE.SphereGeometry(a.hazard?1.5:1, 8, 8);
-    const mesh = new THREE.Mesh(geo, a.hazard ? matH.clone() : matN.clone());
+    // Size based on estimated diameter (clamped for visibility)
+    const estSize = Math.max(0.6, Math.min(2.5, (a.sizeMax || 0.05) * 8));
+    const isHaz = a.hazard;
+    const geo = makeAsteroidGeometry(parseInt(a.id || i * 137, 10), isHaz ? estSize * 1.2 : estSize);
+    const mat = (isHaz ? astMatHazard : astMatNormal).clone();
+    const mesh = new THREE.Mesh(geo, mat);
+    // Random rotation for variety
+    mesh.rotation.set(i * 0.7, i * 1.3, i * 0.4);
     const ang=i*2.4, rad=14+(i%5)*6;
     mesh.position.set(ep.x+Math.cos(ang)*rad, ep.y+Math.sin(i*1.7)*rad*.5, ep.z+Math.sin(ang)*rad);
     mesh.userData = {...a, _isAsteroid:true};
     asteroidGroup.add(mesh);
     asteroidMarkerMeshes.push(mesh);
-    if (a.hazard) {
-      // Glow ring for hazardous
-      const ringGeo = new THREE.RingGeometry(1.8, 2.2, 16);
-      const ringMat = new THREE.MeshBasicMaterial({color:0xef4444,transparent:true,opacity:.4,side:THREE.DoubleSide});
+    if (isHaz) {
+      // Pulsing glow ring for hazardous
+      const ringGeo = new THREE.RingGeometry(estSize*1.5, estSize*1.9, 24);
+      const ringMat = new THREE.MeshBasicMaterial({color:0xef4444,transparent:true,opacity:.35,side:THREE.DoubleSide});
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.lookAt(camera.position);
       mesh.add(ring);
@@ -1724,6 +1897,11 @@ function animate(time) {
   // Orbit visibility
   orbitLinesGroup.visible = simState.orbitsVisible.planets;
   asteroidGroup.visible = true;
+  // Slow tumble rotation for asteroids
+  for (const am of asteroidMarkerMeshes) {
+    am.rotation.x += dt * 0.15;
+    am.rotation.y += dt * 0.2;
+  }
   for (const k in spacecraftOrbitLines) {
     spacecraftOrbitLines[k].visible = godsEyeActive || simState.orbitsVisible.spacecraft;
   }

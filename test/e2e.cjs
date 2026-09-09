@@ -71,6 +71,13 @@ setTimeout(async () => {
   try {
     check('no uncaught errors', errors.length === 0, JSON.stringify(errors.slice(0, 3)));
 
+    // ─── INTRO SCREEN ─────────────────────────────────
+    check('intro screen exists', !!document.getElementById('intro-screen'));
+    check('intro MULAI button', !!document.getElementById('intro-start'));
+    check('intro loading bar', !!document.getElementById('intro-bar'));
+    check('intro star field', !!document.getElementById('intro-stars'));
+    check('welcome audio element', !!document.getElementById('welcome-audio'));
+
     // ─── HEADER ─────────────────────────────────────
     check('title present', document.title.includes('Solar Watch'));
     check('topbar exists', !!document.getElementById('topbar'));
