@@ -1,0 +1,29 @@
+{
+  "name": "day-3",
+  "version": "1.0.0",
+  "description": "**Day 4 — 30 Days Make a Project** · Pemantau aktivitas tata surya real-time di browser.",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node test/e2e.cjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Vincrescent/day-3.git"
+  },
+  "keywords": [],
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Vincrescent/day-3/issues"
+  },
+  "homepage": "https://github.com/Vincrescent/day-3#readme",
+  "devDependencies": {
+    "three": "^0.160.0",
+    "vite": "^8.2.2"
+  }
+}

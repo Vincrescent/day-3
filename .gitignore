@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.log
+.env
+
+# Large NASA GLB models (download separately, >50MB each)
+public/assets/spacecraft/iss/ISS.glb
+public/assets/small-bodies/bennu/Bennu.glb
+
+# Old reference dirs
+.audit/
+gods-eye-view-main/
+universe-eye/
