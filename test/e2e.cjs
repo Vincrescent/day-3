@@ -75,7 +75,7 @@ setTimeout(async () => {
     check('intro screen exists', !!document.getElementById('intro-screen'));
     check('intro MULAI button', !!document.getElementById('intro-start'));
     check('intro loading bar', !!document.getElementById('intro-bar'));
-    check('intro star field', !!document.getElementById('intro-stars'));
+    check('intro canvas', !!document.getElementById('intro-canvas'));
     check('welcome audio element', !!document.getElementById('welcome-audio'));
 
     // ─── HEADER ─────────────────────────────────────

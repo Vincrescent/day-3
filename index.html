@@ -26,19 +26,11 @@ html,body{height:100%;overflow:hidden}
 body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex;flex-direction:column}
 
 /* ─── INTRO / LANDING PAGE ─── */
-#intro-screen{position:fixed;inset:0;z-index:10000;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;overflow:hidden;transition:opacity 1.2s ease}
+#intro-screen{position:fixed;inset:0;z-index:10000;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;overflow:hidden;transition:opacity 1.2s ease}
 #intro-screen.hidden{opacity:0;pointer-events:none}
-.intro-stars{position:absolute;inset:0;overflow:hidden}
-.intro-star{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;animation:twinkle 3s infinite}
-@keyframes twinkle{0%,100%{opacity:.3}50%{opacity:1}}
+#intro-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0}
 @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-@keyframes orbit-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .intro-content{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:24px;text-align:center;padding:20px}
-.intro-sun{width:120px;height:120px;border-radius:50%;background:radial-gradient(circle at 38% 38%,#ffd76e,#f97316 45%,#dc2626 80%,transparent 100%);box-shadow:0 0 60px #f9731688,0 0 120px #f9731644,0 0 200px #f9731622;animation:sun-pulse 4s ease-in-out infinite}
-@keyframes sun-pulse{0%,100%{box-shadow:0 0 60px #f9731688,0 0 120px #f9731644;transform:scale(1)}50%{box-shadow:0 0 80px #f97316aa,0 0 160px #f9731666;transform:scale(1.03)}}
-.intro-orbit{position:absolute;width:200px;height:200px;border:1px solid rgba(56,189,248,.12);border-radius:50%;animation:orbit-spin 20s linear infinite}
-.intro-orbit:nth-child(2){width:280px;height:280px;border-color:rgba(167,139,250,.08);animation-duration:35s;animation-direction:reverse}
-.intro-orbit .dot{position:absolute;width:6px;height:6px;border-radius:50%;top:-3px;left:50%;margin-left:-3px}
 .intro-title{font-size:clamp(28px,6vw,56px);font-weight:800;letter-spacing:.12em;background:linear-gradient(135deg,#fbbf24,#f97316,#ef4444,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-shadow:none;line-height:1.1}
 .intro-subtitle{font-size:clamp(12px,2vw,16px);color:var(--muted);max-width:500px;line-height:1.6;letter-spacing:.03em}
 .intro-tagline{font-size:11px;color:rgba(255,255,255,.25);letter-spacing:.15em;text-transform:uppercase;margin-top:-8px}
@@ -215,13 +207,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 
 <!-- INTRO / LANDING SCREEN -->
 <div id="intro-screen">
-  <div class="intro-stars" id="intro-stars"></div>
+  <canvas id="intro-canvas"></canvas>
   <div class="intro-content">
-    <div style="position:relative;display:flex;align-items:center;justify-content:center">
-      <div class="intro-sun"></div>
-      <div class="intro-orbit"><div class="dot" style="background:#38bdf8"></div></div>
-      <div class="intro-orbit"><div class="dot" style="background:#a78bfa"></div></div>
-    </div>
+    <div style="height:160px"></div><!-- spacer for canvas sun -->
     <div class="intro-title">SOLAR WATCH</div>
     <div class="intro-tagline">Interactive 3D Solar System Explorer</div>
     <div class="intro-subtitle">
@@ -384,28 +372,218 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 <script>
 'use strict';
 
-// ─── INTRO SCREEN LOGIC ───────────────────────────
+// ─── INTRO SCREEN: 3D ANIMATED SUN + SHOOTING STARS ───────
 (function initIntro() {
   const introScreen = document.getElementById('intro-screen');
   const introBar = document.getElementById('intro-bar');
   const introText = document.getElementById('intro-load-text');
   const introBtn = document.getElementById('intro-start');
   const introLoading = document.getElementById('intro-loading');
-  const starsEl = document.getElementById('intro-stars');
+  const canvas = document.getElementById('intro-canvas');
+  if (!canvas) return;
 
-  // Generate starfield
-  if (starsEl) {
-    for (let i = 0; i < 120; i++) {
-      const s = document.createElement('div');
-      s.className = 'intro-star';
-      s.style.left = Math.random() * 100 + '%';
-      s.style.top = Math.random() * 100 + '%';
-      s.style.animationDelay = (Math.random() * 4) + 's';
-      s.style.animationDuration = (2 + Math.random() * 3) + 's';
-      s.style.width = s.style.height = (1 + Math.random() * 2) + 'px';
-      starsEl.appendChild(s);
+  const ctx = canvas.getContext('2d');
+  let W, H, animId;
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // ── STARS (static twinkling background) ──
+  const stars = [];
+  for (let i = 0; i < 300; i++) {
+    stars.push({
+      x: Math.random() * 2000 - 200,
+      y: Math.random() * 1400 - 200,
+      r: 0.3 + Math.random() * 1.8,
+      twinkleSpeed: 0.5 + Math.random() * 2,
+      phase: Math.random() * Math.PI * 2,
+      brightness: 0.4 + Math.random() * 0.6
+    });
+  }
+
+  // ── SHOOTING STARS (meteor shower) ──
+  const shootingStars = [];
+  function spawnShootingStar() {
+    const angle = (20 + Math.random() * 30) * Math.PI / 180; // ~20-50 degrees down-right
+    const speed = 6 + Math.random() * 10;
+    shootingStars.push({
+      x: Math.random() * W * 1.2 - W * 0.1,
+      y: -20 - Math.random() * 100,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      len: 40 + Math.random() * 80,
+      life: 1,
+      decay: 0.008 + Math.random() * 0.012,
+      thickness: 1 + Math.random() * 1.5,
+      hue: Math.random() > 0.7 ? 200 : 40 // occasional blue ones
+    });
+  }
+
+  // ── 3D SUN RENDERING ──
+  function drawSun(t) {
+    const cx = W / 2;
+    const cy = H * 0.32;
+    const baseR = Math.min(W, H) * 0.11;
+    const pulse = 1 + Math.sin(t * 0.8) * 0.015;
+    const R = baseR * pulse;
+
+    // Outer corona glow (multiple layers)
+    for (let i = 5; i >= 1; i--) {
+      const gr = ctx.createRadialGradient(cx, cy, R * 0.3, cx, cy, R * (1 + i * 0.8));
+      const alpha = 0.03 * (6 - i);
+      gr.addColorStop(0, `rgba(255,200,50,${alpha})`);
+      gr.addColorStop(0.3, `rgba(255,140,20,${alpha * 0.7})`);
+      gr.addColorStop(1, 'rgba(255,80,0,0)');
+      ctx.fillStyle = gr;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * (1 + i * 0.8), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Solar flares (animated tendrils)
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2 + t * 0.3 + Math.sin(t * 1.2 + i) * 0.3;
+      const flareLen = R * (0.15 + Math.sin(t * 2.5 + i * 1.7) * 0.12);
+      const fx = cx + Math.cos(angle) * (R + flareLen);
+      const fy = cy + Math.sin(angle) * (R + flareLen);
+      const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, flareLen * 1.5);
+      fg.addColorStop(0, 'rgba(255,200,80,0.15)');
+      fg.addColorStop(1, 'rgba(255,100,0,0)');
+      ctx.fillStyle = fg;
+      ctx.beginPath();
+      ctx.arc(fx, fy, flareLen * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Main sun body — bright sphere with surface texture illusion
+    const sunGrad = ctx.createRadialGradient(cx - R * 0.2, cy - R * 0.2, R * 0.05, cx, cy, R);
+    sunGrad.addColorStop(0, '#fffbe6');
+    sunGrad.addColorStop(0.15, '#ffe066');
+    sunGrad.addColorStop(0.4, '#ffb020');
+    sunGrad.addColorStop(0.7, '#f97316');
+    sunGrad.addColorStop(0.9, '#dc2626');
+    sunGrad.addColorStop(1, '#991b1b');
+    ctx.fillStyle = sunGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Surface granulation (animated noise spots)
+    ctx.save();
+    ctx.globalCompositeOperation = 'overlay';
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2 + t * 0.15;
+      const d = R * (0.2 + Math.sin(t * 0.7 + i * 2.1) * 0.3);
+      const sx = cx + Math.cos(a) * d;
+      const sy = cy + Math.sin(a) * d;
+      const sr = R * (0.08 + Math.sin(t * 1.3 + i * 3) * 0.04);
+      const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
+      sg.addColorStop(0, 'rgba(255,220,100,0.25)');
+      sg.addColorStop(1, 'rgba(255,140,0,0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath();
+      ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Bright specular highlight
+    const specGrad = ctx.createRadialGradient(cx - R * 0.3, cy - R * 0.3, 0, cx - R * 0.3, cy - R * 0.3, R * 0.5);
+    specGrad.addColorStop(0, 'rgba(255,255,255,0.2)');
+    specGrad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = specGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Orbiting planet dots
+    for (let i = 0; i < 3; i++) {
+      const orbitR = R * (1.8 + i * 0.7);
+      const speed = 0.3 - i * 0.08;
+      const pAngle = t * speed + i * 2.1;
+      const px = cx + Math.cos(pAngle) * orbitR;
+      const py = cy + Math.sin(pAngle) * orbitR * 0.35; // elliptical
+      const colors = ['#38bdf8', '#a78bfa', '#34d399'];
+      const pSize = 3 - i * 0.5;
+
+      // Orbit line
+      ctx.strokeStyle = `rgba(255,255,255,${0.04 - i * 0.01})`;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, orbitR, orbitR * 0.35, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Planet dot
+      ctx.fillStyle = colors[i];
+      ctx.shadowColor = colors[i];
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(px, py, pSize, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
     }
   }
+
+  // ── MAIN ANIMATION LOOP ──
+  let lastShoot = 0;
+  function animate(t) {
+    const time = t / 1000;
+    ctx.clearRect(0, 0, W, H);
+
+    // Draw stars
+    for (const s of stars) {
+      const bri = s.brightness * (0.5 + 0.5 * Math.sin(time * s.twinkleSpeed + s.phase));
+      ctx.fillStyle = `rgba(255,255,255,${bri})`;
+      ctx.beginPath();
+      ctx.arc(s.x % W, s.y % H, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Spawn shooting stars periodically
+    if (time - lastShoot > 0.3 + Math.random() * 1.5) {
+      spawnShootingStar();
+      lastShoot = time;
+    }
+
+    // Draw & update shooting stars
+    for (let i = shootingStars.length - 1; i >= 0; i--) {
+      const ss = shootingStars[i];
+      ss.x += ss.vx;
+      ss.y += ss.vy;
+      ss.life -= ss.decay;
+      if (ss.life <= 0 || ss.y > H + 50 || ss.x > W + 50) {
+        shootingStars.splice(i, 1);
+        continue;
+      }
+      const tailX = ss.x - (ss.vx / Math.sqrt(ss.vx*ss.vx + ss.vy*ss.vy)) * ss.len * ss.life;
+      const tailY = ss.y - (ss.vy / Math.sqrt(ss.vx*ss.vx + ss.vy*ss.vy)) * ss.len * ss.life;
+      const grad = ctx.createLinearGradient(tailX, tailY, ss.x, ss.y);
+      grad.addColorStop(0, `hsla(${ss.hue},80%,80%,0)`);
+      grad.addColorStop(1, `hsla(${ss.hue},80%,90%,${ss.life * 0.8})`);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = ss.thickness;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(tailX, tailY);
+      ctx.lineTo(ss.x, ss.y);
+      ctx.stroke();
+      // Head glow
+      ctx.fillStyle = `hsla(${ss.hue},80%,95%,${ss.life * 0.6})`;
+      ctx.beginPath();
+      ctx.arc(ss.x, ss.y, ss.thickness, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Draw 3D sun
+    drawSun(time);
+
+    animId = requestAnimationFrame(animate);
+  }
+  animId = requestAnimationFrame(animate);
 
   // Loading progress simulation
   const stages = [
@@ -445,12 +623,15 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
   // MULAI button click
   if (introBtn) {
     introBtn.addEventListener('click', () => {
-      // Play welcome audio (if file exists)
+      // Play welcome audio
       const audio = document.getElementById('welcome-audio');
-      if (audio && audio.src) {
+      if (audio) {
         audio.volume = 0.7;
-        audio.play().catch(() => {}); // Ignore if no audio file
+        audio.play().catch(() => {});
       }
+
+      // Stop intro animation
+      if (animId) cancelAnimationFrame(animId);
 
       // Fade out intro
       introScreen.classList.add('hidden');
