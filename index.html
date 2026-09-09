@@ -324,6 +324,15 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 <script>
 'use strict';
 
+// NASA API key — get free key at https://api.nasa.gov to avoid rate limits
+// Set via URL param ?api_key=YOUR_KEY or localStorage
+const _NASA_KEY = (typeof location !== 'undefined' && location.search
+  ? new URLSearchParams(location.search).get('api_key') : null)
+  || (typeof localStorage !== 'undefined' ? localStorage.getItem('nasa_api_key') : null)
+  || 'DEMO_KEY';
+if (_NASA_KEY !== 'DEMO_KEY') localStorage.setItem('nasa_api_key', _NASA_KEY);
+const _astCache = {};
+
 const AU_PX=180, MS_PER_DAY=86400000, JD2000_UNIX=946728000000;
 const BODIES_DOM = [
   {id:'sun',name:'Sun',color:'#fbbf24'},
@@ -423,8 +432,28 @@ async function _fetchAst() {
   const start=startEl&&startEl.value?startEl.value:today;
   const end=endEl&&endEl.value?endEl.value:start;
   try {
-    const res=await fetch('https://api.nasa.gov/neo/rest/v1/feed?start_date='+start+'&end_date='+end+'&api_key=DEMO_KEY');
-    if(!res.ok) throw new Error('API '+res.status);
+    const cacheKey = start + '_' + end;
+    if (_astCache[cacheKey]) {
+      const arr = _astCache[cacheKey];
+      el.innerHTML='';
+      arr.forEach(a=>{
+        const div=document.createElement('div');
+        div.className='ast-item'+(a.hazard?' hazard':'');
+        div.innerHTML='<div class="ast-name">'+a.name+(a.hazard?' ⚠':'')+'</div><div class="ast-meta"><span>±'+Number(a.sizeMax).toFixed(3)+' km</span><span>'+(a.distLunar?parseFloat(a.distLunar).toFixed(1)+' LD':'—')+'</span></div>';
+        el.appendChild(div);
+      });
+      if(window.__SW&&window.__SW.syncAsteroids) window.__SW.syncAsteroids(arr);
+      return;
+    }
+    const res=await fetch('https://api.nasa.gov/neo/rest/v1/feed?start_date='+start+'&end_date='+end+'&api_key='+_NASA_KEY);
+    if(!res.ok) {
+      if(res.status===429) {
+        el.innerHTML='<div class="ast-error">Rate limited (429). Using DEMO_KEY — get a free key at <a href="https://api.nasa.gov" target="_blank" style="color:var(--accent)">api.nasa.gov</a> and add ?api_key=YOUR_KEY to the URL. Retrying in 60s...</div>';
+        setTimeout(()=>_fetchAst(), 60000);
+        return;
+      }
+      throw new Error('API '+res.status);
+    }
     const d=await res.json();
     const arr=[];
     if(d.near_earth_objects){
@@ -442,6 +471,7 @@ async function _fetchAst() {
       }
     }
     arr.sort((a,b)=>(parseFloat(a.distLunar)||999)-(parseFloat(b.distLunar)||999));
+    _astCache[cacheKey] = arr;
     el.innerHTML='';
     if(!arr.length){el.innerHTML='<div class="ast-loading">No asteroids in range.</div>';return;}
     arr.forEach(a=>{
@@ -1208,8 +1238,16 @@ async function fetchNeoWs(startDate, endDate) {
   try {
     const start = startDate || simDateStr();
     const end = endDate || start;
-    const res = await fetch(`https://api.nasa.gov/neo/rest/v1/feed?start_date=${start}&end_date=${end}&api_key=DEMO_KEY`);
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const _key = (typeof _NASA_KEY !== 'undefined') ? _NASA_KEY : 'DEMO_KEY';
+    const res = await fetch(`https://api.nasa.gov/neo/rest/v1/feed?start_date=${start}&end_date=${end}&api_key=${_key}`);
+    if (!res.ok) {
+      if (res.status === 429) {
+        el.innerHTML = '<div class="ast-error">Rate limited (429). Retrying in 60s... Get a free key at <a href="https://api.nasa.gov" target="_blank" style="color:var(--accent)">api.nasa.gov</a></div>';
+        setTimeout(() => fetchNeoWs(startDate, endDate), 60000);
+        return;
+      }
+      throw new Error(`API error: ${res.status}`);
+    }
     const d = await res.json();
     const allAst = [];
     
